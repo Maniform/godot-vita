@@ -32,6 +32,7 @@
 #include "core/io/zip_io.h"
 #include "core/version.h"
 
+#define TEMPLATE_DEBUG "vita_debug.zip"
 #define TEMPLATE_RELEASE "vita_release.zip"
 
 class ExportPluginVita : public EditorExportPlugin {
@@ -111,6 +112,7 @@ public:
 	virtual bool has_valid_export_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error, bool &r_missing_templates) const {
 		String err;
 		r_missing_templates =
+				find_export_template(TEMPLATE_DEBUG) == String() &&
 				find_export_template(TEMPLATE_RELEASE) == String();
 
 		bool valid = !r_missing_templates;
@@ -225,7 +227,7 @@ public:
 			return ERR_FILE_BAD_PATH;
 		}
 
-		String template_path = find_export_template(TEMPLATE_RELEASE);
+		String template_path = find_export_template(p_debug ? TEMPLATE_DEBUG : TEMPLATE_RELEASE);
 		if (template_path != String() && !FileAccess::exists(template_path)) {
 			add_message(EXPORT_MESSAGE_ERROR, TTR("Prepare Templates"), vformat(TTR("Template file not found: \"%s\"."), template_path));
 			return ERR_FILE_NOT_FOUND;

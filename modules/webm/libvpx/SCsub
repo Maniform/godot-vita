@@ -219,7 +219,10 @@ webm_multithread = env["platform"] != "javascript"
 cpu_bits = env["bits"]
 webm_cpu_x86 = False
 webm_cpu_arm = False
-if env["platform"] == "uwp":
+is_x11_or_server_arm = False
+if env["platform"] == "windows" and env["arch"] == "arm64":
+    webm_cpu_arm = True
+elif env["platform"] == "uwp":
     if "arm" in env["PROGSUFFIX"]:
         webm_cpu_arm = True
     else:

@@ -2,6 +2,9 @@ def can_build(env, platform):
     if not env["tools"]:
         return False
 
+    if platform == "windows" and env["arch"] == "arm64":
+        return False
+
     # Depends on Embree library, which only supports x86_64 and aarch64.
     if env["arch"] in ["arm", "arm32"] or env["arch"].startswith("rv") or env["arch"].startswith("ppc"):
         return False

@@ -370,3 +370,7 @@ $RECYCLE.BIN/
 *.msm
 *.msp
 *.lnk
+
+# Local cross-compilation toolchains
+.toolchains/
+.scons_cache/

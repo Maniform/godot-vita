@@ -2,6 +2,9 @@ def can_build(env, platform):
     if not env["tools"] or not env["module_raycast_enabled"]:
         return False
 
+    if platform == "windows" and env["arch"] == "arm64":
+        return False
+
     # Depends on raycast module (embree), but we can't have access to the result of
     # `can_build()` for that module, so we need to duplicate that code as a short-term
     # solution.

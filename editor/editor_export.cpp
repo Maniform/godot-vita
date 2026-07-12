@@ -1640,7 +1640,7 @@ void EditorExportPlatformPC::get_preset_features(const Ref<EditorExportPreset> &
 		r_features->push_back("etc2");
 	}
 
-	if (get_os_name() == "X11") {
+	if (get_os_name() == "X11" || get_os_name() == "Windows") {
 		const String &arch = get_preset_arch(p_preset);
 		r_features->push_back(arch);
 		if (arch == "x86_64" || arch == "arm64") {
@@ -1666,8 +1666,9 @@ void EditorExportPlatformPC::get_export_options(List<ExportOption> *r_options) {
 	// Given how late this arrived, we didn't refactor the whole export preset
 	// interface to support more per-platform flexibility, like done in 4.0,
 	// so instead we hack the few needed changes here with `get_os_name()` checks.
-	if (get_os_name() == "X11") {
-		r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "binary_format/architecture", PROPERTY_HINT_ENUM, "x86_64,x86_32,arm64,arm32"), "x86_64"));
+	if (get_os_name() == "X11" || get_os_name() == "Windows") {
+		String architectures = get_os_name() == "Windows" ? "x86_64,x86_32,arm64" : "x86_64,x86_32,arm64,arm32";
+		r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "binary_format/architecture", PROPERTY_HINT_ENUM, architectures), "x86_64"));
 	} else {
 		r_options->push_back(ExportOption(PropertyInfo(Variant::BOOL, "binary_format/64_bits"), true));
 	}
@@ -1699,7 +1700,7 @@ bool EditorExportPlatformPC::has_valid_export_configuration(const Ref<EditorExpo
 
 	// Look for export templates (first official, and if defined custom templates).
 
-	if (get_os_name() == "X11") {
+	if (get_os_name() == "X11" || get_os_name() == "Windows") {
 		const String &arch = get_preset_arch(p_preset);
 		dvalid = exists_export_template(debug_files[arch], &err);
 		rvalid = exists_export_template(release_files[arch], &err);
@@ -1759,7 +1760,7 @@ bool EditorExportPlatform::can_export(const Ref<EditorExportPreset> &p_preset, S
 List<String> EditorExportPlatformPC::get_binary_extensions(const Ref<EditorExportPreset> &p_preset) const {
 	List<String> list;
 	for (Map<String, String>::Element *E = extensions.front(); E; E = E->next()) {
-		if (get_os_name() == "X11") {
+		if (get_os_name() == "X11" || get_os_name() == "Windows") {
 			if (get_preset_arch(p_preset) == E->key()) {
 				list.push_back(extensions[E->key()]);
 				return list;
@@ -1808,7 +1809,7 @@ Error EditorExportPlatformPC::prepare_template(const Ref<EditorExportPreset> &p_
 	template_path = template_path.strip_edges();
 
 	if (template_path == String()) {
-		if (get_os_name() == "X11") {
+		if (get_os_name() == "X11" || get_os_name() == "Windows") {
 			if (p_debug) {
 				template_path = find_export_template(debug_files[get_preset_arch(p_preset)]);
 			} else {
@@ -1862,7 +1863,7 @@ Error EditorExportPlatformPC::export_project_data(const Ref<EditorExportPreset> 
 	if (err == OK && p_preset->get("binary_format/embed_pck")) {
 		if (embedded_size >= 0x100000000) {
 			bool use64;
-			if (get_os_name() == "X11") {
+			if (get_os_name() == "X11" || get_os_name() == "Windows") {
 				const String &arch = get_preset_arch(p_preset);
 				use64 = (arch == "x86_64" || arch == "arm64");
 			} else {

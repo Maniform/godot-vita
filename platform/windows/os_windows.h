@@ -143,7 +143,7 @@ typedef BOOL(WINAPI *WTPacketPtr)(HANDLE p_ctx, UINT p_param, LPVOID p_packets);
 typedef BOOL(WINAPI *WTEnablePtr)(HANDLE p_ctx, BOOL p_enable);
 
 // Windows Ink API
-#ifndef POINTER_STRUCTURES
+#if WINVER < 0x0602
 
 #define POINTER_STRUCTURES
 

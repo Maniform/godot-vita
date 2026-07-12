@@ -30,14 +30,21 @@ def can_build():
         # Cross-compiling with MinGW-w64 (old MinGW32 is not supported)
         mingw32 = "i686-w64-mingw32-"
         mingw64 = "x86_64-w64-mingw32-"
+        mingw_arm64 = "/opt/llvm-mingw/bin/aarch64-w64-mingw32-"
 
         if os.getenv("MINGW32_PREFIX"):
             mingw32 = os.getenv("MINGW32_PREFIX")
         if os.getenv("MINGW64_PREFIX"):
             mingw64 = os.getenv("MINGW64_PREFIX")
+        if os.getenv("MINGW_ARM64_PREFIX"):
+            mingw_arm64 = os.getenv("MINGW_ARM64_PREFIX")
 
         test = "gcc --version > /dev/null 2>&1"
-        if os.system(mingw64 + test) == 0 or os.system(mingw32 + test) == 0:
+        if (
+            os.system(mingw64 + test) == 0
+            or os.system(mingw32 + test) == 0
+            or os.system(mingw_arm64 + "clang --version > /dev/null 2>&1") == 0
+        ):
             return True
 
     return False
@@ -48,18 +55,23 @@ def get_opts():
 
     mingw32 = ""
     mingw64 = ""
+    mingw_arm64 = ""
     if os.name == "posix":
         mingw32 = "i686-w64-mingw32-"
         mingw64 = "x86_64-w64-mingw32-"
+        mingw_arm64 = "/opt/llvm-mingw/bin/aarch64-w64-mingw32-"
 
     if os.getenv("MINGW32_PREFIX"):
         mingw32 = os.getenv("MINGW32_PREFIX")
     if os.getenv("MINGW64_PREFIX"):
         mingw64 = os.getenv("MINGW64_PREFIX")
+    if os.getenv("MINGW_ARM64_PREFIX"):
+        mingw_arm64 = os.getenv("MINGW_ARM64_PREFIX")
 
     return [
         ("mingw_prefix_32", "MinGW prefix (Win32)", mingw32),
         ("mingw_prefix_64", "MinGW prefix (Win64)", mingw64),
+        ("mingw_prefix_arm64", "LLVM-MinGW prefix (Windows ARM64)", mingw_arm64),
         # Targeted Windows version: 7 (and later), minimum supported version
         # XP support dropped after EOL due to missing API for IPv6 and other issues
         # Vista support dropped after EOL due to GH-10243
@@ -81,7 +93,9 @@ def get_flags():
 
 
 def build_res_file(target, source, env):
-    if env["bits"] == "32":
+    if env["arch"] == "arm64":
+        cmdbase = env["mingw_prefix_arm64"]
+    elif env["bits"] == "32":
         cmdbase = env["mingw_prefix_32"]
     else:
         cmdbase = env["mingw_prefix_64"]
@@ -317,6 +331,8 @@ def configure_msvc(env, manual_msvc_config):
 
 
 def configure_mingw(env):
+    is_arm64 = env["arch"] == "arm64"
+
     # Workaround for MinGW. See:
     # http://www.scons.org/wiki/LongCmdLinesOnWin32
     env.use_windows_spawn_fix()
@@ -324,7 +340,8 @@ def configure_mingw(env):
     ## Build type
 
     if env["target"] == "release":
-        env.Append(CCFLAGS=["-msse2"])
+        if not is_arm64:
+            env.Append(CCFLAGS=["-msse2"])
 
         if env["optimize"] == "speed":  # optimize for speed (default)
             if env["bits"] == "64":
@@ -350,7 +367,8 @@ def configure_mingw(env):
         # Allow big objects. It's supposed not to have drawbacks but seems to break
         # GCC LTO, so enabling for debug builds only (which are not built with LTO
         # and are the only ones with too big objects).
-        env.Append(CCFLAGS=["-Wa,-mbig-obj"])
+        if not is_arm64:
+            env.Append(CCFLAGS=["-Wa,-mbig-obj"])
 
     if env["windows_subsystem"] == "gui":
         env.Append(LINKFLAGS=["-Wl,--subsystem,windows"])
@@ -376,7 +394,12 @@ def configure_mingw(env):
 
     mingw_prefix = ""
 
-    if env["bits"] == "32":
+    if is_arm64:
+        env["bits"] = "64"
+        if env["use_static_cpp"]:
+            env.Append(LINKFLAGS=["-static"])
+        mingw_prefix = env["mingw_prefix_arm64"]
+    elif env["bits"] == "32":
         if env["use_static_cpp"]:
             env.Append(LINKFLAGS=["-static"])
             env.Append(LINKFLAGS=["-static-libgcc"])
@@ -390,9 +413,9 @@ def configure_mingw(env):
     if env["use_llvm"]:
         env["CC"] = mingw_prefix + "clang"
         env["CXX"] = mingw_prefix + "clang++"
-        env["AS"] = mingw_prefix + "as"
-        env["AR"] = mingw_prefix + "ar"
-        env["RANLIB"] = mingw_prefix + "ranlib"
+        env["AS"] = mingw_prefix + ("clang" if is_arm64 else "as")
+        env["AR"] = mingw_prefix + ("llvm-ar" if is_arm64 else "ar")
+        env["RANLIB"] = mingw_prefix + ("llvm-ranlib" if is_arm64 else "ranlib")
     else:
         env["CC"] = mingw_prefix + "gcc"
         env["CXX"] = mingw_prefix + "g++"
@@ -400,7 +423,7 @@ def configure_mingw(env):
         env["AR"] = mingw_prefix + "gcc-ar"
         env["RANLIB"] = mingw_prefix + "gcc-ranlib"
 
-    env["x86_libtheora_opt_gcc"] = True
+    env["x86_libtheora_opt_gcc"] = not is_arm64
 
     ## LTO
 

@@ -37,7 +37,7 @@
 
 #include <functiondiscoverykeys.h>
 
-#ifndef PKEY_Device_FriendlyName
+#if !defined(__aarch64__) && !defined(PKEY_Device_FriendlyName)
 
 #undef DEFINE_PROPERTYKEY
 /* clang-format off */
