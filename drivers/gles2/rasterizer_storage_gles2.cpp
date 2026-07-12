@@ -5226,8 +5226,7 @@ void RasterizerStorageGLES2::_render_target_allocate(RenderTarget *rt) {
 	/* BACK FBO */
 	/* For MSAA */
 
-#ifndef JAVASCRIPT_ENABLED
-#ifndef VITAGL
+#if !defined(JAVASCRIPT_ENABLED) && !defined(VITAGL)
 	if (rt->msaa >= VS::VIEWPORT_MSAA_2X && rt->msaa <= VS::VIEWPORT_MSAA_16X && config.multisample_supported) {
 		rt->multisample_active = true;
 
@@ -5271,7 +5270,6 @@ void RasterizerStorageGLES2::_render_target_allocate(RenderTarget *rt) {
 
 		glFramebufferTexture2DMultisample(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rt->multisample_color, 0, msaa);
 #endif
-#endif // VITAGL
 
 		GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
 
@@ -5303,7 +5301,7 @@ void RasterizerStorageGLES2::_render_target_allocate(RenderTarget *rt) {
 #endif
 
 	} else
-#endif // JAVASCRIPT_ENABLED
+#endif // !JAVASCRIPT_ENABLED && !VITAGL
 	{
 		rt->multisample_active = false;
 	}
