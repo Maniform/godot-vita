@@ -10,14 +10,20 @@ TARGET=${1:-all}
 OUT=${TEMPLATE_OUTPUT_DIR:-$ROOT/bin/export-templates}
 STAGE="$OUT/staging"
 ARM64_PREFIX=${MINGW_ARM64_PREFIX:-$ROOT/.toolchains/llvm-mingw/bin/aarch64-w64-mingw32-}
+X64_LLVM_PREFIX=${MINGW_X64_LLVM_PREFIX:-$ROOT/.toolchains/llvm-mingw/bin/x86_64-w64-mingw32-}
 VITAGL=${VITAGL:-no}
 VITA_PVR_SDK=${VITA_PVR_SDK:-${VITASDK:-/usr/local/vitasdk}/arm-vita-eabi}
 mkdir -p "$STAGE"
 
 build_windows_x64() {
-  scons platform=windows target=release tools=no bits=64 use_mingw=yes debug_symbols=no lto=none -j"$JOBS"
+  local compiler_args=()
+  if [[ $(uname -m) == aarch64 || $(uname -m) == arm64 ]]; then
+    test -x "${X64_LLVM_PREFIX}clang++" || { echo "LLVM-MinGW x64 introuvable: ${X64_LLVM_PREFIX}clang++" >&2; exit 1; }
+    compiler_args=(arch=x86_64 use_llvm=yes mingw_prefix_64="$X64_LLVM_PREFIX")
+  fi
+  scons platform=windows target=release tools=no bits=64 use_mingw=yes "${compiler_args[@]}" debug_symbols=no lto=none -j"$JOBS"
   cp bin/godot.windows.opt.64.exe "$STAGE/windows_64_release.exe"
-  scons platform=windows target=release_debug tools=no bits=64 use_mingw=yes debug_symbols=no lto=none -j"$JOBS"
+  scons platform=windows target=release_debug tools=no bits=64 use_mingw=yes "${compiler_args[@]}" debug_symbols=no lto=none -j"$JOBS"
   cp bin/godot.windows.opt.debug.64.exe "$STAGE/windows_64_debug.exe"
 }
 

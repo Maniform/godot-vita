@@ -6,11 +6,17 @@ VERSION=${LLVM_MINGW_VERSION:-20260407}
 TOOLCHAINS_DIR=${TOOLCHAINS_DIR:-$ROOT/.toolchains}
 INSTALL_DIR="$TOOLCHAINS_DIR/llvm-mingw-$VERSION"
 LINK_DIR="$TOOLCHAINS_DIR/llvm-mingw"
-ARCHIVE="llvm-mingw-${VERSION}-ucrt-ubuntu-22.04-x86_64.tar.xz"
+case "$(uname -m)" in
+  x86_64) HOST_ARCH=x86_64; OPPOSITE_TARGET=aarch64 ;;
+  aarch64|arm64) HOST_ARCH=aarch64; OPPOSITE_TARGET=x86_64 ;;
+  *) echo "Architecture hôte non prise en charge: $(uname -m)" >&2; exit 1 ;;
+esac
+
+ARCHIVE="llvm-mingw-${VERSION}-ucrt-ubuntu-22.04-${HOST_ARCH}.tar.xz"
 URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${VERSION}/${ARCHIVE}"
 
-if [[ $(uname -s) != Linux || $(uname -m) != x86_64 ]]; then
-  echo "Ce script nécessite un hôte Linux x86_64 (Ubuntu ou WSL)." >&2
+if [[ $(uname -s) != Linux ]]; then
+  echo "Ce script nécessite un hôte Linux Ubuntu ou WSL." >&2
   exit 1
 fi
 
@@ -39,7 +45,7 @@ fi
 
 mkdir -p "$TOOLCHAINS_DIR"
 
-if [[ ! -x "$INSTALL_DIR/bin/aarch64-w64-mingw32-clang++" ]]; then
+if [[ ! -x "$INSTALL_DIR/bin/${OPPOSITE_TARGET}-w64-mingw32-clang++" ]]; then
   WORK=$(mktemp -d)
   trap 'rm -rf "$WORK"' EXIT
 
@@ -50,16 +56,23 @@ fi
 
 ln -sfn "$(basename "$INSTALL_DIR")" "$LINK_DIR"
 
-PREFIX="$LINK_DIR/bin/aarch64-w64-mingw32-"
-for tool in clang clang++ windres; do
-  test -x "${PREFIX}${tool}" || { echo "Outil LLVM-MinGW manquant: ${PREFIX}${tool}" >&2; exit 1; }
+for target in aarch64 x86_64; do
+  PREFIX="$LINK_DIR/bin/${target}-w64-mingw32-"
+  for tool in clang clang++ windres; do
+    test -x "${PREFIX}${tool}" || { echo "Outil LLVM-MinGW manquant: ${PREFIX}${tool}" >&2; exit 1; }
+  done
 done
 test -x "$LINK_DIR/bin/llvm-ar" || { echo "Outil LLVM-MinGW manquant: $LINK_DIR/bin/llvm-ar" >&2; exit 1; }
 
+PREFIX="$LINK_DIR/bin/${OPPOSITE_TARGET}-w64-mingw32-"
 "${PREFIX}clang++" --version
 "${PREFIX}windres" --version
 
 echo
-echo "Dépendances Windows ARM64 installées."
+echo "Toolchain Windows ${OPPOSITE_TARGET} installée pour l’hôte ${HOST_ARCH}."
 echo "Toolchain: $LINK_DIR"
-echo "Compilation: scripts/build_editors.sh windows-arm64"
+if [[ $OPPOSITE_TARGET == aarch64 ]]; then
+  echo "Compilation: scripts/build_editors.sh windows-arm64"
+else
+  echo "Compilation: scripts/build_editors.sh windows-x64"
+fi
