@@ -164,11 +164,12 @@ Error OS_Vita::initialize(const VideoMode &p_desired, int p_video_driver, int p_
 
 	sceSysmoduleLoadModule(SCE_SYSMODULE_IME); // Enable the IME module for Keyboard input
 
-	// Enable SceTouch
-	sceTouchSetSamplingState(SCE_TOUCH_PORT_FRONT, SCE_TOUCH_SAMPLING_STATE_START);
-
-	sceTouchGetPanelInfo(0, &front_panel_info);
-	front_panel_size = Vector2(front_panel_info.maxAaX, front_panel_info.maxAaY);
+	// Rear touch indices start at SCE_TOUCH_MAX_REPORT (8), leaving 0-7 for
+	// front-panel touches so games can distinguish both surfaces.
+	for (int port = 0; port < TOUCH_PORT_COUNT; port++) {
+		touch_sampling[port] = sceTouchGetPanelInfo(port, &touch_panel_info[port]) >= 0 &&
+				sceTouchSetSamplingState(port, SCE_TOUCH_SAMPLING_STATE_START) >= 0;
+	}
 
 	// Enable SceMotion (Battery Usage go brrrrrr)
 	sceMotionStartSampling();
@@ -265,48 +266,83 @@ void OS_Vita::run() {
 }
 
 void OS_Vita::process_touch() {
-	sceTouchPeek(0, &touch, 1);
-	static uint32_t last_touch_count = 0;
+	process_touch_port(SCE_TOUCH_PORT_FRONT);
+	process_touch_port(SCE_TOUCH_PORT_BACK);
+}
 
-	if (touch.reportNum != last_touch_count) {
-		if (touch.reportNum > last_touch_count) { // new touches
-			for (uint32_t i = last_touch_count; i < touch.reportNum; i++) {
-				Vector2 pos(touch.report[i].x, touch.report[i].y);
-				pos /= front_panel_size;
-				pos *= Vector2(960, 544);
-				Ref<InputEventScreenTouch> st;
-				st.instance();
-				st->set_index(i);
-				st->set_position(pos);
-				st->set_pressed(true);
-				input->parse_input_event(st);
-			}
-		} else { // lost touches
-			for (uint32_t i = touch.reportNum; i < last_touch_count; i++) {
-				Ref<InputEventScreenTouch> st;
-				st.instance();
-				st->set_index(i);
-				st->set_position(last_touch_pos[i]);
-				st->set_pressed(false);
-				input->parse_input_event(st);
+Vector2 OS_Vita::get_touch_position(SceTouchPortType p_port, const SceTouchReport &p_report) const {
+	const SceTouchPanelInfo &panel = touch_panel_info[p_port];
+	const Vector2 origin(panel.minAaX, panel.minAaY);
+	const Vector2 size(panel.maxAaX - panel.minAaX, panel.maxAaY - panel.minAaY);
+	const Vector2 position(p_report.x, p_report.y);
+	return ((position - origin) / size) * Vector2(video_mode.width, video_mode.height);
+}
+
+void OS_Vita::process_touch_port(SceTouchPortType p_port) {
+	SceTouchData touch;
+	if (!touch_sampling[p_port] || sceTouchPeek(p_port, &touch, 1) < 0) {
+		return;
+	}
+
+	bool seen[TOUCHES_PER_PORT] = {};
+	for (uint32_t report_index = 0; report_index < touch.reportNum; report_index++) {
+		const SceTouchReport &report = touch.report[report_index];
+		int slot = -1;
+		for (int i = 0; i < TOUCHES_PER_PORT; i++) {
+			if (touch_points[p_port][i].active && touch_points[p_port][i].id == report.id) {
+				slot = i;
+				break;
 			}
 		}
-	} else {
-		for (uint32_t i = 0; i < touch.reportNum; i++) {
-			Vector2 pos(touch.report[i].x, touch.report[i].y);
-			pos /= front_panel_size;
-			pos *= Vector2(960, 544);
-			Ref<InputEventScreenDrag> sd;
-			sd.instance();
-			sd->set_index(i);
-			sd->set_position(pos);
-			sd->set_relative(pos - last_touch_pos[i]);
-			last_touch_pos[i] = pos;
-			input->parse_input_event(sd);
+		if (slot < 0) {
+			for (int i = 0; i < TOUCHES_PER_PORT; i++) {
+				if (!touch_points[p_port][i].active) {
+					slot = i;
+					break;
+				}
+			}
+		}
+		if (slot < 0) {
+			continue;
+		}
+
+		VitaTouchPoint &point = touch_points[p_port][slot];
+		const Vector2 position = get_touch_position(p_port, report);
+		const int event_index = p_port * TOUCHES_PER_PORT + slot;
+		seen[slot] = true;
+		if (!point.active) {
+			point.active = true;
+			point.id = report.id;
+			point.position = position;
+			Ref<InputEventScreenTouch> event;
+			event.instance();
+			event->set_index(event_index);
+			event->set_position(position);
+			event->set_pressed(true);
+			input->parse_input_event(event);
+		} else if (position != point.position) {
+			Ref<InputEventScreenDrag> event;
+			event.instance();
+			event->set_index(event_index);
+			event->set_position(position);
+			event->set_relative(position - point.position);
+			point.position = position;
+			input->parse_input_event(event);
 		}
 	}
 
-	last_touch_count = touch.reportNum;
+	for (int slot = 0; slot < TOUCHES_PER_PORT; slot++) {
+		VitaTouchPoint &point = touch_points[p_port][slot];
+		if (point.active && !seen[slot]) {
+			Ref<InputEventScreenTouch> event;
+			event.instance();
+			event->set_index(p_port * TOUCHES_PER_PORT + slot);
+			event->set_position(point.position);
+			event->set_pressed(false);
+			input->parse_input_event(event);
+			point.active = false;
+		}
+	}
 }
 
 void OS_Vita::process_motion() {
@@ -560,6 +596,14 @@ OS_Vita::OS_Vita() {
 	main_loop = nullptr;
 	visual_server = nullptr;
 	gl_context = nullptr;
+	for (int port = 0; port < TOUCH_PORT_COUNT; port++) {
+		touch_sampling[port] = false;
+		for (int slot = 0; slot < TOUCHES_PER_PORT; slot++) {
+			touch_points[port][slot].active = false;
+			touch_points[port][slot].id = 0;
+			touch_points[port][slot].position = Vector2();
+		}
+	}
 
 	AudioDriverManager::add_driver(&driver_vita);
 }

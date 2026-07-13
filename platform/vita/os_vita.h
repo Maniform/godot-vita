@@ -63,11 +63,19 @@ class OS_Vita : public OS {
 	InputDefault *input;
 	JoypadVita *joypad;
 
-	Vector2 last_touch_pos[SCE_TOUCH_MAX_REPORT];
-	SceTouchData touch;
-	SceTouchPanelInfo front_panel_info;
-	Vector2 front_panel_size;
+	struct VitaTouchPoint {
+		bool active;
+		uint8_t id;
+		Vector2 position;
+	};
+	static const int TOUCH_PORT_COUNT = SCE_TOUCH_PORT_MAX_NUM;
+	static const int TOUCHES_PER_PORT = SCE_TOUCH_MAX_REPORT;
+	VitaTouchPoint touch_points[TOUCH_PORT_COUNT][TOUCHES_PER_PORT];
+	SceTouchPanelInfo touch_panel_info[TOUCH_PORT_COUNT];
+	bool touch_sampling[TOUCH_PORT_COUNT];
 	void process_touch();
+	void process_touch_port(SceTouchPortType p_port);
+	Vector2 get_touch_position(SceTouchPortType p_port, const SceTouchReport &p_report) const;
 
 	SceMotionState motion_state;
 	void process_motion();
