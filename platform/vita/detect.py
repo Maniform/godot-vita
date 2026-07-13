@@ -23,7 +23,7 @@ def can_build():
 
 def get_opts():
 
-    from SCons.Variables import BoolVariable, EnumVariable
+    from SCons.Variables import BoolVariable, EnumVariable, PathVariable
 
     return [
         BoolVariable("use_sanitizer", "Use LLVM compiler address sanitizer", False),
@@ -31,6 +31,12 @@ def get_opts():
         EnumVariable("debug_symbols", "Add debugging symbols to release builds", "no", ("yes", "no", "full")),
         BoolVariable("separate_debug_symbols", "Create a separate file containing debugging symbols", False),
         BoolVariable("touch", "Enable touch events", True),
+        PathVariable(
+            "vita_pvr_sdk_path",
+            "PVR_PSP2 prefix containing include/gpu_es4 and the VitaSDK stub libraries",
+            os.environ.get("VITA_PVR_SDK", os.environ.get("VITASDK", "/usr/local/vitasdk") + "/arm-vita-eabi"),
+            PathVariable.PathAccept,
+        ),
     ]
 
 
@@ -61,6 +67,22 @@ def get_flags():
 
 def configure(env):
     vita_sdk_path = os.environ.get("VITASDK", "/usr/local/vitasdk")
+    pvr_sdk_path = os.path.abspath(env["vita_pvr_sdk_path"])
+
+    if not env["vitagl"]:
+        required_pvr_files = [
+            "include/gpu_es4/psp2_pvr_hint.h",
+            "lib/liblibgpu_es4_ext_stub.a",
+            "lib/liblibIMGEGL_stub.a",
+            "lib/liblibGLESv2_stub.a",
+        ]
+        missing_pvr_files = [path for path in required_pvr_files if not os.path.isfile(os.path.join(pvr_sdk_path, path))]
+        if missing_pvr_files:
+            print("ERROR: vitagl=no requires PVR_PSP2 headers and VitaSDK stubs.")
+            print("Install them or set vita_pvr_sdk_path/VITA_PVR_SDK to their prefix:")
+            for path in missing_pvr_files:
+                print("  - {}".format(os.path.join(pvr_sdk_path, path)))
+            env.Exit(1)
 
     env["CC"] = vita_sdk_path + "/bin/arm-vita-eabi-gcc"
     env["CXX"] = vita_sdk_path + "/bin/arm-vita-eabi-g++"
@@ -81,6 +103,9 @@ def configure(env):
     env.Prepend(CPPPATH=["{}/arm-vita-eabi/include/freetype2".format(vita_sdk_path)])
     env.Prepend(CPPPATH=["{}/share/gcc-arm-vita-eabi/samples/common".format(vita_sdk_path)])
     env.Append(LIBPATH=["{}/arm-vita-eabi/lib".format(vita_sdk_path)])
+    if not env["vitagl"]:
+        env.Prepend(CPPPATH=[os.path.join(pvr_sdk_path, "include")])
+        env.Prepend(LIBPATH=[os.path.join(pvr_sdk_path, "lib")])
     env.Append(
         LINKFLAGS=[
             "-Wl,-q,-whole-archive",
@@ -224,9 +249,9 @@ def configure(env):
                 "zstd",
                 "pcre2-32",
                 "theora",
-                "-llibgpu_es4_ext_stub.a",
-                "-llibIMGEGL_stub.a",
-                "-llibGLESv2_stub.a",
+                "liblibgpu_es4_ext_stub",
+                "liblibIMGEGL_stub",
+                "liblibGLESv2_stub",
             ]
         )
     print(env.get("LIBS"))

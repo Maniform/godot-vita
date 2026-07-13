@@ -10,6 +10,8 @@ TARGET=${1:-all}
 OUT=${TEMPLATE_OUTPUT_DIR:-$ROOT/bin/export-templates}
 STAGE="$OUT/staging"
 ARM64_PREFIX=${MINGW_ARM64_PREFIX:-$ROOT/.toolchains/llvm-mingw/bin/aarch64-w64-mingw32-}
+VITAGL=${VITAGL:-no}
+VITA_PVR_SDK=${VITA_PVR_SDK:-${VITASDK:-/usr/local/vitasdk}/arm-vita-eabi}
 mkdir -p "$STAGE"
 
 build_windows_x64() {
@@ -36,7 +38,11 @@ build_linux() {
 
 build_vita_variant() {
   local target=$1 name=$2
-  scons platform=vita target="$target" tools=no vitagl=yes debug_symbols=no lto=none -j"$JOBS" temp-build/eboot.bin
+  local backend_args=(vitagl="$VITAGL")
+  if [[ "$VITAGL" == no ]]; then
+    backend_args+=(vita_pvr_sdk_path="$VITA_PVR_SDK")
+  fi
+  scons platform=vita target="$target" tools=no "${backend_args[@]}" debug_symbols=no lto=none -j"$JOBS" temp-build/eboot.bin
   python3 scripts/package_templates.py vita platform/vita/app temp-build/eboot.bin "$STAGE/$name"
 }
 
