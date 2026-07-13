@@ -91,6 +91,15 @@ install_host_dependencies() {
 }
 
 install_vitasdk() {
+  local update="$VITASDK/bin/vitasdk-update"
+  local compiler="$VITASDK/bin/arm-vita-eabi-gcc"
+
+  if [[ -x $update && -x $compiler && ${FORCE_VITASDK_INSTALL:-no} != yes ]]; then
+    echo "VitaSDK déjà installé dans $VITASDK; bootstrap ignoré."
+    "$update"
+    return
+  fi
+
   mkdir -p "$(dirname "$VDPM_DIR")"
   if [[ -d "$VDPM_DIR/.git" ]]; then
     git -C "$VDPM_DIR" pull --ff-only
@@ -99,7 +108,7 @@ install_vitasdk() {
   fi
   (cd "$VDPM_DIR" && ./bootstrap-vitasdk.sh)
   (cd "$VDPM_DIR" && ./install-all.sh)
-  vitasdk-update
+  "$update"
 }
 
 select_mingw_posix() {

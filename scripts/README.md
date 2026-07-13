@@ -10,7 +10,10 @@ scripts/setup_godot_vita.sh
 ```
 
 Le script ajoute un bloc géré à `~/.bashrc` pour `VITASDK` et `PATH`. Il est
-réexécutable; les compilations SCons utilisent le cache du dépôt.
+réexécutable; les compilations SCons utilisent le cache du dépôt. Si VitaSDK
+est déjà installé, le bootstrap et `install-all.sh` sont ignorés et seul
+`vitasdk-update` est exécuté. `FORCE_VITASDK_INSTALL=yes` permet de forcer une
+réinstallation complète.
 
 Options principales :
 
