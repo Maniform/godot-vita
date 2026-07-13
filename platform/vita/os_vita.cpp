@@ -171,11 +171,10 @@ Error OS_Vita::initialize(const VideoMode &p_desired, int p_video_driver, int p_
 				sceTouchSetSamplingState(port, SCE_TOUCH_SAMPLING_STATE_START) >= 0;
 	}
 
-	// Enable SceMotion (Battery Usage go brrrrrr)
-	sceMotionStartSampling();
-	sceMotionMagnetometerOn();
-
-	sceMotionSetAngleThreshold(45);
+	motion_sampling = sceMotionStartSampling() >= 0;
+	if (motion_sampling) {
+		magnetometer_sampling = sceMotionMagnetometerOn() >= 0;
+	}
 
 	return OK;
 }
@@ -190,6 +189,15 @@ void OS_Vita::delete_main_loop() {
 }
 
 void OS_Vita::finalize() {
+	if (magnetometer_sampling) {
+		sceMotionMagnetometerOff();
+		magnetometer_sampling = false;
+	}
+	if (motion_sampling) {
+		sceMotionStopSampling();
+		motion_sampling = false;
+	}
+
 	memdelete(joypad);
 	memdelete(input);
 	visual_server->finish();
@@ -346,11 +354,25 @@ void OS_Vita::process_touch_port(SceTouchPortType p_port) {
 }
 
 void OS_Vita::process_motion() {
-	sceMotionGetState(&motion_state);
-	process_accelerometer(Vector3(motion_state.acceleration.x, motion_state.acceleration.y, motion_state.acceleration.z));
-	process_gravity(Vector3(motion_state.basicOrientation.x, motion_state.basicOrientation.y, motion_state.basicOrientation.z));
+	if (!motion_sampling || sceMotionGetState(&motion_state) < 0) {
+		return;
+	}
+
+	const Vector3 acceleration(motion_state.acceleration.x, motion_state.acceleration.y, motion_state.acceleration.z);
+	process_accelerometer(acceleration);
+	// SceMotion has no separate continuous gravity vector. Filtering the
+	// accelerometer gives Godot a useful gravity estimate instead of the coarse
+	// -1/0/1 basicOrientation value.
+	gravity = gravity.linear_interpolate(acceleration, 0.2f);
+	process_gravity(gravity);
 	process_gyroscope(Vector3(motion_state.angularVelocity.x, motion_state.angularVelocity.y, motion_state.angularVelocity.z));
-	process_magnetometer(Vector3(0, 0, 0)); // No idea how to calculate this. I'm not a linear maths guy.
+
+	if (magnetometer_sampling && motion_state.magFieldStability == SCE_MOTION_MAGFIELD_STABLE) {
+		// VitaSDK exposes magnetic north through the NED matrix, not raw field
+		// strength in microteslas. Publish the normalized north direction.
+		const Vector3 magnetic_north(motion_state.nedMatrix.x.x, motion_state.nedMatrix.x.y, motion_state.nedMatrix.x.z);
+		process_magnetometer(magnetic_north.normalized());
+	}
 }
 
 void OS_Vita::process_accelerometer(const Vector3 &m_accelerometer) {
@@ -596,6 +618,9 @@ OS_Vita::OS_Vita() {
 	main_loop = nullptr;
 	visual_server = nullptr;
 	gl_context = nullptr;
+	motion_sampling = false;
+	magnetometer_sampling = false;
+	gravity = Vector3();
 	for (int port = 0; port < TOUCH_PORT_COUNT; port++) {
 		touch_sampling[port] = false;
 		for (int slot = 0; slot < TOUCHES_PER_PORT; slot++) {

@@ -78,6 +78,9 @@ class OS_Vita : public OS {
 	Vector2 get_touch_position(SceTouchPortType p_port, const SceTouchReport &p_report) const;
 
 	SceMotionState motion_state;
+	Vector3 gravity;
+	bool motion_sampling;
+	bool magnetometer_sampling;
 	void process_motion();
 	void process_accelerometer(const Vector3 &m_accelerometer);
 	void process_gravity(const Vector3 &m_gravity);
