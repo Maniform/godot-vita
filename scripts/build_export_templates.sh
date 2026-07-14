@@ -22,24 +22,24 @@ build_windows_x64() {
     compiler_args=(arch=x86_64 use_llvm=yes mingw_prefix_64="$X64_LLVM_PREFIX")
   fi
   scons platform=windows target=release tools=no bits=64 use_mingw=yes "${compiler_args[@]}" debug_symbols=no lto=none -j"$JOBS"
-  cp bin/godot.windows.opt.64.exe "$STAGE/windows_64_release.exe"
+  mv -f bin/godot.windows.opt.64.exe "$STAGE/windows_64_release.exe"
   scons platform=windows target=release_debug tools=no bits=64 use_mingw=yes "${compiler_args[@]}" debug_symbols=no lto=none -j"$JOBS"
-  cp bin/godot.windows.opt.debug.64.exe "$STAGE/windows_64_debug.exe"
+  mv -f bin/godot.windows.opt.debug.64.exe "$STAGE/windows_64_debug.exe"
 }
 
 build_windows_arm64() {
   test -x "${ARM64_PREFIX}clang++" || { echo "LLVM-MinGW ARM64 not found: ${ARM64_PREFIX}clang++" >&2; exit 1; }
   MINGW_ARM64_PREFIX="$ARM64_PREFIX" scons platform=windows target=release tools=no arch=arm64 bits=64 use_mingw=yes use_llvm=yes mingw_prefix_arm64="$ARM64_PREFIX" target_win_version=0x0A00 debug_symbols=no lto=none -j"$JOBS"
-  cp bin/godot.windows.opt.arm64.exe "$STAGE/windows_arm64_release.exe"
+  mv -f bin/godot.windows.opt.arm64.exe "$STAGE/windows_arm64_release.exe"
   MINGW_ARM64_PREFIX="$ARM64_PREFIX" scons platform=windows target=release_debug tools=no arch=arm64 bits=64 use_mingw=yes use_llvm=yes mingw_prefix_arm64="$ARM64_PREFIX" target_win_version=0x0A00 debug_symbols=no lto=none -j"$JOBS"
-  cp bin/godot.windows.opt.debug.arm64.exe "$STAGE/windows_arm64_debug.exe"
+  mv -f bin/godot.windows.opt.debug.arm64.exe "$STAGE/windows_arm64_debug.exe"
 }
 
 build_linux() {
   scons platform=x11 target=release tools=no bits=64 debug_symbols=no lto=none -j"$JOBS"
-  cp bin/godot.x11.opt.64 "$STAGE/linux_x11_64_release"
+  mv -f bin/godot.x11.opt.64 "$STAGE/linux_x11_64_release"
   scons platform=x11 target=release_debug tools=no bits=64 debug_symbols=no lto=none -j"$JOBS"
-  cp bin/godot.x11.opt.debug.64 "$STAGE/linux_x11_64_debug"
+  mv -f bin/godot.x11.opt.debug.64 "$STAGE/linux_x11_64_debug"
 }
 
 build_vita_variant() {

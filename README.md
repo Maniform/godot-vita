@@ -67,6 +67,10 @@ from the Godot export-template manager is written to:
 bin/export-templates/godot-vita_export_templates.tpz
 ```
 
+Desktop template executables are intermediate packaging files. The build
+script moves them to `bin/export-templates/staging/`, so `bin/` only retains
+the standalone editor executables.
+
 ### Windows
 
 The toolchain is designed for Linux. On Windows, run it inside Ubuntu 24.04

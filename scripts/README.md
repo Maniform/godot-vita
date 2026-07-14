@@ -141,6 +141,8 @@ VITAGL=yes scripts/build_export_templates.sh vita
 
 The final bundle is
 `bin/export-templates/godot-vita_export_templates.tpz` by default.
+Desktop template executables are moved from `bin/` to the staging directory
+after each build; only editor executables remain directly in `bin/`.
 
 ## `install_vita_pvr_sdk.sh`
 
