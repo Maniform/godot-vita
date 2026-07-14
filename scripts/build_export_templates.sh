@@ -18,7 +18,7 @@ mkdir -p "$STAGE"
 build_windows_x64() {
   local compiler_args=()
   if [[ $(uname -m) == aarch64 || $(uname -m) == arm64 ]]; then
-    test -x "${X64_LLVM_PREFIX}clang++" || { echo "LLVM-MinGW x64 introuvable: ${X64_LLVM_PREFIX}clang++" >&2; exit 1; }
+    test -x "${X64_LLVM_PREFIX}clang++" || { echo "LLVM-MinGW x64 not found: ${X64_LLVM_PREFIX}clang++" >&2; exit 1; }
     compiler_args=(arch=x86_64 use_llvm=yes mingw_prefix_64="$X64_LLVM_PREFIX")
   fi
   scons platform=windows target=release tools=no bits=64 use_mingw=yes "${compiler_args[@]}" debug_symbols=no lto=none -j"$JOBS"
@@ -28,7 +28,7 @@ build_windows_x64() {
 }
 
 build_windows_arm64() {
-  test -x "${ARM64_PREFIX}clang++" || { echo "LLVM-MinGW ARM64 introuvable: ${ARM64_PREFIX}clang++" >&2; exit 1; }
+  test -x "${ARM64_PREFIX}clang++" || { echo "LLVM-MinGW ARM64 not found: ${ARM64_PREFIX}clang++" >&2; exit 1; }
   MINGW_ARM64_PREFIX="$ARM64_PREFIX" scons platform=windows target=release tools=no arch=arm64 bits=64 use_mingw=yes use_llvm=yes mingw_prefix_arm64="$ARM64_PREFIX" target_win_version=0x0A00 debug_symbols=no lto=none -j"$JOBS"
   cp bin/godot.windows.opt.arm64.exe "$STAGE/windows_arm64_release.exe"
   MINGW_ARM64_PREFIX="$ARM64_PREFIX" scons platform=windows target=release_debug tools=no arch=arm64 bits=64 use_mingw=yes use_llvm=yes mingw_prefix_arm64="$ARM64_PREFIX" target_win_version=0x0A00 debug_symbols=no lto=none -j"$JOBS"
@@ -69,4 +69,4 @@ esac
 mapfile -t FILES < <(find "$STAGE" -maxdepth 1 -type f -printf "%f=%p\n" | sort)
 python3 scripts/package_templates.py bundle "$ROOT" "$OUT/godot-vita_export_templates.tpz" "${FILES[@]}"
 python3 -m zipfile -t "$OUT/godot-vita_export_templates.tpz"
-echo "TPZ créé: $OUT/godot-vita_export_templates.tpz"
+echo "TPZ created: $OUT/godot-vita_export_templates.tpz"

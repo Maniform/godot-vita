@@ -20,7 +20,7 @@ for file in \
   "$PREFIX/lib/liblibgpu_es4_ext_stub.a" \
   "$PREFIX/lib/liblibIMGEGL_stub.a" \
   "$PREFIX/lib/liblibGLESv2_stub.a"; do
-  test -f "$file" || { echo "Fichier PVR_PSP2 manquant après installation: $file" >&2; exit 1; }
+  test -f "$file" || { echo "PVR_PSP2 file missing after installation: $file" >&2; exit 1; }
 done
 
-echo "PVR_PSP2 ${VERSION} installé dans $PREFIX"
+echo "PVR_PSP2 ${VERSION} installed in $PREFIX"

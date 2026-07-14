@@ -12,12 +12,12 @@ usage() {
   cat <<'EOF'
 Usage: scripts/setup_godot_vita.sh [options]
 
-  --with-cross-arch  Installe LLVM-MinGW pour Windows vers l’architecture opposée
-  --install-only     Installe et configure sans lancer les builds
-  --build-only       Lance uniquement les builds
-  -h, --help         Affiche cette aide
+  --with-cross-arch  Install LLVM-MinGW for the opposite Windows architecture
+  --install-only     Install and configure without building
+  --build-only       Run the builds without installing
+  -h, --help         Show this help
 
-Variables utiles: VITASDK, JOBS, LLVM_MINGW_VERSION, PVR_PSP2_VERSION.
+Useful variables: VITASDK, JOBS, LLVM_MINGW_VERSION, PVR_PSP2_VERSION.
 EOF
 }
 
@@ -27,13 +27,13 @@ while (($#)); do
     --install-only) SKIP_BUILD=yes ;;
     --build-only) SKIP_INSTALL=yes ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "Option inconnue: $1" >&2; usage >&2; exit 2 ;;
+    *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
   shift
 done
 
 if [[ $(uname -s) != Linux ]]; then
-  echo "Ce script nécessite Ubuntu 24.04 ou WSL Ubuntu 24.04." >&2
+  echo "This script requires Ubuntu 24.04 or Ubuntu 24.04 under WSL." >&2
   exit 1
 fi
 
@@ -41,18 +41,18 @@ if [[ -r /etc/os-release ]]; then
   . /etc/os-release
   if [[ ${ID:-} != ubuntu || ${VERSION_ID:-} != 24.04 ]]; then
     if [[ ${ALLOW_UNSUPPORTED_UBUNTU:-no} != yes ]]; then
-      echo "Ubuntu 24.04 requis; système détecté: ${PRETTY_NAME:-inconnu}." >&2
-      echo "Utilisez ALLOW_UNSUPPORTED_UBUNTU=yes pour continuer à vos risques." >&2
+      echo "Ubuntu 24.04 is required; detected system: ${PRETTY_NAME:-unknown}." >&2
+      echo "Set ALLOW_UNSUPPORTED_UBUNTU=yes to continue at your own risk." >&2
       exit 1
     fi
-    echo "Avertissement: exécution sur ${PRETTY_NAME:-un système non reconnu}." >&2
+    echo "Warning: running on ${PRETTY_NAME:-an unrecognized system}." >&2
   fi
 fi
 
 case "$(uname -m)" in
   x86_64) HOST_ARCH=x86_64 ;;
   aarch64|arm64) HOST_ARCH=aarch64 ;;
-  *) echo "Architecture non prise en charge: $(uname -m)" >&2; exit 1 ;;
+  *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
 if [[ $EUID -eq 0 ]]; then
@@ -60,7 +60,7 @@ if [[ $EUID -eq 0 ]]; then
 elif command -v sudo >/dev/null 2>&1; then
   SUDO=(sudo)
 else
-  echo "sudo est requis pour installer VitaSDK et les paquets Ubuntu." >&2
+  echo "sudo is required to install VitaSDK and the Ubuntu packages." >&2
   exit 1
 fi
 
@@ -95,7 +95,7 @@ install_vitasdk() {
   local compiler="$VITASDK/bin/arm-vita-eabi-gcc"
 
   if [[ -x $update && -x $compiler && ${FORCE_VITASDK_INSTALL:-no} != yes ]]; then
-    echo "VitaSDK déjà installé dans $VITASDK; bootstrap ignoré."
+    echo "VitaSDK is already installed in $VITASDK; skipping bootstrap."
     "$update"
     return
   fi
@@ -118,7 +118,7 @@ select_mingw_posix() {
     if [[ -x $candidate ]]; then
       "${SUDO[@]}" update-alternatives --set "x86_64-w64-mingw32-$tool" "$candidate"
     else
-      echo "Avertissement: alternative MinGW POSIX absente: $candidate" >&2
+      echo "Warning: MinGW POSIX alternative not found: $candidate" >&2
     fi
   done
 }
@@ -135,7 +135,7 @@ if [[ $SKIP_INSTALL == no ]]; then
     SKIP_APT=yes "$ROOT/scripts/install_windows_cross_dependencies.sh"
   fi
   if [[ $WITH_CROSS_ARCH == yes ]]; then
-    echo "Note: la compilation Linux vers l’architecture opposée n’est pas prise en charge par platform/x11 de cette branche."
+    echo "Note: this branch's platform/x11 code does not support cross-compiling Linux for the opposite architecture."
   fi
 fi
 
@@ -171,6 +171,6 @@ if [[ $SKIP_BUILD == no ]]; then
 fi
 
 echo
-echo "Préparation godot-vita terminée."
-echo "Éditeurs: $ROOT/bin"
-echo "Modèles: $ROOT/bin/export-templates/godot-vita_export_templates.tpz"
+echo "godot-vita setup completed."
+echo "Editors: $ROOT/bin"
+echo "Templates: $ROOT/bin/export-templates/godot-vita_export_templates.tpz"

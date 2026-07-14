@@ -1,78 +1,160 @@
-# Godot Engine
+# Godot Vita
 
-<p align="center">
-  <a href="https://godotengine.org">
-    <img src="logo_outlined.svg" width="400" alt="Godot Engine logo">
-  </a>
-</p>
+> [!WARNING]
+> **AI-generated changes disclaimer:** Almost all modifications made to this
+> fork beyond the original godot-vita codebase were generated with artificial
+> intelligence. They have been compiled and tested for the documented use
+> cases, but they have not received the same level of manual review as an
+> official Godot release. Review the changes and test your project carefully
+> before distributing a build.
 
-## 2D and 3D cross-platform game engine
+This repository contains a PlayStation Vita port of Godot Engine 3.x, together
+with scripts for preparing the toolchains, building desktop editors, and
+creating Vita and desktop export templates.
 
-**[Godot Engine](https://godotengine.org) is a feature-packed, cross-platform
-game engine to create 2D and 3D games from a unified interface.** It provides a
-comprehensive set of [common tools](https://godotengine.org/features), so that users can focus on making games
-without having to reinvent the wheel. Games can be exported with one click to a
-number of platforms, including the major desktop platforms (Linux, macOS,
-Windows), mobile platforms (Android, iOS), as well as Web-based platforms
-(HTML5) and
-[consoles](https://docs.godotengine.org/en/latest/tutorials/platform/consoles.html).
+## Additions over the base repository
 
-## Free, open source and community-driven
+This fork adds or extends support for the following PlayStation Vita input
+hardware:
 
-Godot is completely free and open source under the very permissive [MIT license](https://godotengine.org/license).
-No strings attached, no royalties, nothing. The users' games are theirs, down
-to the last line of engine code. Godot's development is fully independent and
-community-driven, empowering users to help shape their engine to match their
-expectations. It is supported by the [Software Freedom Conservancy](https://sfconservancy.org/)
-not-for-profit.
+- rear touch screen;
+- accelerometer;
+- gyroscope;
+- magnetometer.
 
-Before being open sourced in [February 2014](https://github.com/godotengine/godot/commit/0b806ee0fc9097fa7bda7ac0109191c9c5e0a1ac),
-Godot had been developed by [Juan Linietsky](https://github.com/reduz) and
-[Ariel Manzur](https://github.com/punto-) (both still maintaining the project) for several
-years as an in-house engine, used to publish several work-for-hire titles.
+The Vita export templates use the PowerVR PVR_PSP2 renderer by default
+(`vitagl=no`). VitaGL remains available as an opt-in build configuration.
 
-![Screenshot of a 3D scene in the Godot Engine editor](https://raw.githubusercontent.com/godotengine/godot-design/master/screenshots/editor_tps_demo_1920x1080.jpg)
+## Build and setup scripts
 
-## Getting the engine
+All project-specific scripts are located in [`scripts`](scripts):
 
-### Binary downloads
+- `setup_godot_vita.sh` — master setup script. Installs the Ubuntu packages,
+  configures the VitaSDK environment, installs or updates VitaSDK, installs
+  PVR_PSP2, configures MinGW, and optionally builds all applicable editors and
+  export templates.
+- `build_editors.sh` — builds the Godot Vita editor for native Linux, Windows
+  x86_64, or Windows ARM64.
+- `build_export_templates.sh` — builds release and debug export templates for
+  Linux, Windows x86_64, Windows ARM64, and PlayStation Vita, then creates an
+  importable `.tpz` bundle.
+- `install_vita_pvr_sdk.sh` — installs the PVR_PSP2 headers and VitaSDK stub
+  libraries required by `vitagl=no` builds.
+- `install_windows_cross_dependencies.sh` — architecture-neutral entry point
+  for installing LLVM-MinGW for Windows cross-compilation.
+- `install_windows_arm64_dependencies.sh` — implementation used by the
+  architecture-neutral Windows toolchain installer; retained under its
+  original name for compatibility.
+- `package_templates.py` — packages individual export templates and the final
+  Godot export-template bundle.
 
-Official binaries for the Godot editor and the export templates can be found
-[on the homepage](https://godotengine.org/download).
+More details and individual commands are available in
+[`scripts/README.md`](scripts/README.md).
 
-### Compiling from source
+## Installation on Ubuntu 24.04
 
-[See the official docs](https://docs.godotengine.org/en/latest/development/compiling/)
-for compilation instructions for every supported platform.
+The supported host is Ubuntu 24.04 on x86_64 or ARM64. Start from a clone of
+this repository and run:
 
-## Community and contributing
+```bash
+git clone https://github.com/SonicMastr/godot-vita.git
+cd godot-vita
+scripts/setup_godot_vita.sh
+```
 
-Godot is not only an engine but an ever-growing community of users and engine
-developers. The main community channels are listed [on the homepage](https://godotengine.org/community).
+The script installs the required development packages, including the X11 and
+MinGW dependencies. It adds the following managed environment block to
+`~/.bashrc`:
 
-The best way to get in touch with the core engine developers is to join the
-[Godot Contributors Chat](https://chat.godotengine.org).
+```bash
+export VITASDK=/usr/local/vitasdk
+export PATH="$VITASDK/bin:$PATH"
+```
 
-To get started contributing to the project, see the [contributing guide](CONTRIBUTING.md).
+It then installs VitaSDK through VDPM, installs PVR_PSP2, selects the MinGW
+POSIX threading compiler, builds the editors applicable to the host, and
+creates the export-template bundle.
 
-## Documentation and demos
+To also build Windows binaries for the CPU architecture opposite to the host:
 
-The official documentation is hosted on [ReadTheDocs](https://docs.godotengine.org).
-It is maintained by the Godot community in its own [GitHub repository](https://github.com/godotengine/godot-docs).
+```bash
+scripts/setup_godot_vita.sh --with-cross-arch
+```
 
-The [class reference](https://docs.godotengine.org/en/latest/classes/)
-is also accessible from the Godot editor.
+Useful partial modes:
 
-We also maintain official demos in their own [GitHub repository](https://github.com/godotengine/godot-demo-projects)
-as well as a list of [awesome Godot community resources](https://github.com/godotengine/awesome-godot).
+```bash
+# Install and configure dependencies without building.
+scripts/setup_godot_vita.sh --install-only
 
-There are also a number of other
-[learning resources](https://docs.godotengine.org/en/latest/community/tutorials.html)
-provided by the community, such as text and video tutorials, demos, etc.
-Consult the [community channels](https://godotengine.org/community)
-for more information.
+# Build using an existing installation.
+scripts/setup_godot_vita.sh --build-only
+```
 
-[![Actions Build Status](https://github.com/godotengine/godot/workflows/Godot/badge.svg?branch=master)](https://github.com/godotengine/godot/actions)
-[![Code Triagers Badge](https://www.codetriage.com/godotengine/godot/badges/users.svg)](https://www.codetriage.com/godotengine/godot)
-[![Translate on Weblate](https://hosted.weblate.org/widgets/godot-engine/-/godot/svg-badge.svg)](https://hosted.weblate.org/engage/godot-engine/?utm_source=widget)
-[![TODOs](https://badgen.net/https/api.tickgit.com/badgen/github.com/godotengine/godot)](https://www.tickgit.com/browse?repo=github.com/godotengine/godot)
+VitaSDK installation is idempotent. When a valid installation already exists,
+the script skips the bootstrap and runs `vitasdk-update`. A complete reinstall
+can be requested with:
+
+```bash
+FORCE_VITASDK_INSTALL=yes scripts/setup_godot_vita.sh
+```
+
+Generated files are placed under `bin/`. The importable export-template bundle
+is written to:
+
+```text
+bin/export-templates/godot-vita_export_templates.tpz
+```
+
+Cross-compiling Linux for the CPU architecture opposite to the host is not
+currently supported by this branch's X11 platform code. Linux builds therefore
+target the host architecture. Windows cross-compilation uses MinGW-w64 for
+x86_64 and LLVM-MinGW for ARM64 or cross-architecture builds.
+
+## Installation on Windows with Ubuntu 24.04 under WSL2
+
+Install WSL2 and Ubuntu 24.04 from an elevated PowerShell terminal:
+
+```powershell
+wsl --install -d Ubuntu-24.04
+```
+
+Restart Windows if requested, launch Ubuntu, and complete the initial Linux
+user setup. Confirm that WSL2 is being used:
+
+```powershell
+wsl --list --verbose
+```
+
+Inside the Ubuntu terminal, clone the repository into the Linux filesystem for
+better compilation performance, rather than under `/mnt/c`:
+
+```bash
+cd ~
+git clone https://github.com/SonicMastr/godot-vita.git
+cd godot-vita
+scripts/setup_godot_vita.sh --with-cross-arch
+```
+
+After the build, Windows executables and the export-template TPZ are available
+inside the repository's `bin` directory. They can be copied to Windows with
+Explorer through:
+
+```text
+\\wsl$\Ubuntu-24.04\home\<linux-user>\godot-vita\bin
+```
+
+The Windows x86_64 editor runs normally on x86_64 Windows and through Windows
+emulation on ARM64 Windows. The Windows ARM64 editor runs natively on ARM64
+Windows.
+
+## Upstream Godot project
+
+Godot Engine is free and open source software distributed under the MIT
+license. General engine documentation is available from the
+[official Godot documentation](https://docs.godotengine.org), and the upstream
+source repository is hosted at [godotengine/godot](https://github.com/godotengine/godot).
+
+See [`CONTRIBUTING.md`](CONTRIBUTING.md) and [`LICENSE.txt`](LICENSE.txt) for the
+upstream contribution and licensing information included with this source
+tree.

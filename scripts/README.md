@@ -1,40 +1,41 @@
-# Scripts de construction
+# Build scripts
 
-## Préparation complète
+## Complete setup
 
-`setup_godot_vita.sh` prépare un Ubuntu 24.04, installe VitaSDK et PVR_PSP2,
-configure MinGW, puis construit les éditeurs et modèles d’exportation :
+`setup_godot_vita.sh` prepares Ubuntu 24.04, installs VitaSDK and PVR_PSP2,
+configures MinGW, and builds the editors and export templates:
 
 ```bash
 scripts/setup_godot_vita.sh
 ```
 
-Le script ajoute un bloc géré à `~/.bashrc` pour `VITASDK` et `PATH`. Il est
-réexécutable; les compilations SCons utilisent le cache du dépôt. Si VitaSDK
-est déjà installé, le bootstrap et `install-all.sh` sont ignorés et seul
-`vitasdk-update` est exécuté. `FORCE_VITASDK_INSTALL=yes` permet de forcer une
-réinstallation complète.
+The script adds a managed block to `~/.bashrc` for `VITASDK` and `PATH`. It is
+safe to run repeatedly, and SCons builds use the repository cache. If VitaSDK
+is already installed, the bootstrap and `install-all.sh` steps are skipped and
+only `vitasdk-update` is executed. Set `FORCE_VITASDK_INSTALL=yes` to force a
+complete reinstall.
 
-Options principales :
+Main options:
 
-- `--install-only` : installation sans compilation ;
-- `--build-only` : compilation sans installation ;
-- `--with-cross-arch` : ajoute les binaires Windows pour l’architecture CPU
-  opposée grâce à LLVM-MinGW.
+- `--install-only`: install without building;
+- `--build-only`: build without installing;
+- `--with-cross-arch`: add Windows binaries for the opposite CPU architecture
+  using LLVM-MinGW.
 
-La compilation Linux vers l’architecture CPU opposée n’est pas activée : le
-port X11 de cette branche ne la prend pas encore en charge. Le binaire Linux
-produit correspond donc toujours à l’architecture de l’hôte.
+Cross-compiling Linux for the opposite CPU architecture is not enabled because
+this branch's X11 platform code does not support it. The Linux binary therefore
+always targets the host architecture.
 
-## Scripts spécialisés
+## Specialized scripts
 
-- `install_vita_pvr_sdk.sh` installe PVR_PSP2 ;
-- `install_windows_cross_dependencies.sh` installe LLVM-MinGW selon
-  l’architecture de l’hôte ;
-- `build_editors.sh` construit les éditeurs ;
-- `build_export_templates.sh` construit et regroupe les modèles dans un TPZ.
+- `install_vita_pvr_sdk.sh` installs PVR_PSP2;
+- `install_windows_cross_dependencies.sh` installs LLVM-MinGW for the host
+  architecture;
+- `build_editors.sh` builds the editors;
+- `build_export_templates.sh` builds and bundles the export templates into a
+  TPZ file.
 
-VitaGL est désactivé par défaut. Pour le réactiver ponctuellement :
+VitaGL is disabled by default. To enable it for a specific build:
 
 ```bash
 VITAGL=yes scripts/build_export_templates.sh vita
