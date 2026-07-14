@@ -25,128 +25,115 @@ hardware:
 The Vita export templates use the PowerVR PVR_PSP2 renderer by default
 (`vitagl=no`). VitaGL remains available as an opt-in build configuration.
 
-## Build and setup scripts
+## Installation
 
-All project-specific scripts are located in [`scripts`](scripts):
+The source repository used by these instructions is
+[Maniform/godot-vita.git](https://github.com/Maniform/godot-vita.git).
 
-- `setup_godot_vita.sh` — master setup script. Installs the Ubuntu packages,
-  configures the VitaSDK environment, installs or updates VitaSDK, installs
-  PVR_PSP2, configures MinGW, and optionally builds all applicable editors and
-  export templates.
-- `build_editors.sh` — builds the Godot Vita editor for native Linux, Windows
-  x86_64, or Windows ARM64.
-- `build_export_templates.sh` — builds release and debug export templates for
-  Linux, Windows x86_64, Windows ARM64, and PlayStation Vita, then creates an
-  importable `.tpz` bundle.
-- `install_vita_pvr_sdk.sh` — installs the PVR_PSP2 headers and VitaSDK stub
-  libraries required by `vitagl=no` builds.
-- `install_windows_cross_dependencies.sh` — architecture-neutral entry point
-  for installing LLVM-MinGW for Windows cross-compilation.
-- `install_windows_arm64_dependencies.sh` — implementation used by the
-  architecture-neutral Windows toolchain installer; retained under its
-  original name for compatibility.
-- `package_templates.py` — packages individual export templates and the final
-  Godot export-template bundle.
+### Ubuntu 24.04
 
-More details and individual commands are available in
-[`scripts/README.md`](scripts/README.md).
+#### 1. Why Ubuntu 24.04?
 
-## Installation on Ubuntu 24.04
+Ubuntu 24.04 is the supported and tested build environment, on both x86_64 and
+ARM64. This Godot 3 branch still builds its Linux editor through the legacy X11
+platform, so the X11 development libraries are required even if the editor
+will not be launched on the build machine. The setup script installs the exact
+X11 packages and compiler toolchains tested on Ubuntu 24.04; other releases may
+provide incompatible package or compiler versions.
 
-The supported host is Ubuntu 24.04 on x86_64 or ARM64. Start from a clone of
-this repository and run:
+#### 2. Clone the repository
 
 ```bash
-git clone https://github.com/SonicMastr/godot-vita.git
+git clone https://github.com/Maniform/godot-vita.git
 cd godot-vita
+```
+
+#### 3. Run the complete setup script
+
+```bash
 scripts/setup_godot_vita.sh
 ```
 
-The script installs the required development packages, including the X11 and
-MinGW dependencies. It adds the following managed environment block to
-`~/.bashrc`:
+The script installs the Ubuntu dependencies, configures VitaSDK, installs
+PVR_PSP2 and the Windows cross-compilation tools, then builds the native Linux
+editor, the applicable Windows editor, and the export templates for those
+platforms and Vita. It may ask for the `sudo` password while installing system
+packages and VitaSDK.
 
-```bash
-export VITASDK=/usr/local/vitasdk
-export PATH="$VITASDK/bin:$PATH"
-```
-
-It then installs VitaSDK through VDPM, installs PVR_PSP2, selects the MinGW
-POSIX threading compiler, builds the editors applicable to the host, and
-creates the export-template bundle.
-
-To also build Windows binaries for the CPU architecture opposite to the host:
-
-```bash
-scripts/setup_godot_vita.sh --with-cross-arch
-```
-
-Useful partial modes:
-
-```bash
-# Install and configure dependencies without building.
-scripts/setup_godot_vita.sh --install-only
-
-# Build using an existing installation.
-scripts/setup_godot_vita.sh --build-only
-```
-
-VitaSDK installation is idempotent. When a valid installation already exists,
-the script skips the bootstrap and runs `vitasdk-update`. A complete reinstall
-can be requested with:
-
-```bash
-FORCE_VITASDK_INSTALL=yes scripts/setup_godot_vita.sh
-```
-
-Generated files are placed under `bin/`. The importable export-template bundle
-is written to:
+The generated editors are placed in `bin/`. The bundle that can be imported
+from the Godot export-template manager is written to:
 
 ```text
 bin/export-templates/godot-vita_export_templates.tpz
 ```
 
-Cross-compiling Linux for the CPU architecture opposite to the host is not
-currently supported by this branch's X11 platform code. Linux builds therefore
-target the host architecture. Windows cross-compilation uses MinGW-w64 for
-x86_64 and LLVM-MinGW for ARM64 or cross-architecture builds.
+### Windows
 
-## Installation on Windows with Ubuntu 24.04 under WSL2
+The toolchain is designed for Linux. On Windows, run it inside Ubuntu 24.04
+with WSL2.
 
-Install WSL2 and Ubuntu 24.04 from an elevated PowerShell terminal:
+#### 1. Install WSL2
+
+Open PowerShell as Administrator and enable WSL without installing its default
+distribution:
+
+```powershell
+wsl --install --no-distribution
+```
+
+Restart Windows if requested.
+
+#### 2. Install Ubuntu 24.04 in WSL
+
+Open PowerShell again and run:
 
 ```powershell
 wsl --install -d Ubuntu-24.04
 ```
 
-Restart Windows if requested, launch Ubuntu, and complete the initial Linux
-user setup. Confirm that WSL2 is being used:
+Launch Ubuntu 24.04, create the Linux user when prompted, then confirm from
+PowerShell that the distribution uses WSL2:
 
 ```powershell
 wsl --list --verbose
 ```
 
-Inside the Ubuntu terminal, clone the repository into the Linux filesystem for
-better compilation performance, rather than under `/mnt/c`:
+If the `VERSION` column does not show `2`, convert the distribution with:
+
+```powershell
+wsl --set-version Ubuntu-24.04 2
+```
+
+#### 3. Continue with the Ubuntu installation
+
+Open the Ubuntu 24.04 terminal and follow the
+[Ubuntu instructions](#ubuntu-2404), starting at step 2. Before cloning, move
+to the Linux home directory so the repository is stored in WSL's Linux
+filesystem rather than on a mounted Windows drive:
 
 ```bash
 cd ~
-git clone https://github.com/SonicMastr/godot-vita.git
-cd godot-vita
-scripts/setup_godot_vita.sh --with-cross-arch
 ```
 
-After the build, Windows executables and the export-template TPZ are available
-inside the repository's `bin` directory. They can be copied to Windows with
-Explorer through:
+Then run the clone and setup commands from the Ubuntu section unchanged.
+
+After the build, Windows can access the generated files through WSL's network
+share. For example, enter this location in File Explorer and open the Linux
+user's `godot-vita/bin` directory:
 
 ```text
-\\wsl$\Ubuntu-24.04\home\<linux-user>\godot-vita\bin
+\\wsl$\Ubuntu-24.04\home
 ```
 
-The Windows x86_64 editor runs normally on x86_64 Windows and through Windows
-emulation on ARM64 Windows. The Windows ARM64 editor runs natively on ARM64
-Windows.
+## Build and setup scripts
+
+The complete setup command above is sufficient for the standard installation.
+The scripts can also be run individually to install only selected toolchains,
+build one editor or export target, change the number of parallel jobs, or choose
+VitaGL instead of PVR_PSP2.
+
+See [`scripts/README.md`](scripts/README.md) for every script's purpose,
+accepted arguments, environment variables, defaults, and generated files.
 
 ## Upstream Godot project
 

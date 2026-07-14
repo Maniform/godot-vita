@@ -72,7 +72,9 @@ echo
 echo "Windows ${OPPOSITE_TARGET} toolchain installed for the ${HOST_ARCH} host."
 echo "Toolchain: $LINK_DIR"
 if [[ $OPPOSITE_TARGET == aarch64 ]]; then
-  echo "Build command: scripts/build_editors.sh windows-arm64"
+  echo "Editor build command: scripts/build_editors.sh windows-arm64"
+  echo "Template build command: scripts/build_export_templates.sh windows-arm64"
 else
-  echo "Build command: scripts/build_editors.sh windows-x64"
+  echo "Editor build command: scripts/build_editors.sh windows-x64"
+  echo "Template build command: scripts/build_export_templates.sh windows-x64"
 fi
