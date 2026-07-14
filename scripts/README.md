@@ -8,9 +8,10 @@ toolchains.
 ## `setup_godot_vita.sh`
 
 This is the main setup script. It verifies Ubuntu 24.04, installs the host and
-X11 development packages, configures VitaSDK in the shell, installs or updates
-VitaSDK and PVR_PSP2, configures MinGW, and builds the supported desktop
-editors and export templates.
+X11 development packages, ALSA, PulseAudio, Speech Dispatcher, and libudev,
+configures VitaSDK in the shell, installs or updates VitaSDK and PVR_PSP2,
+configures MinGW, and builds the supported desktop editors and export
+templates.
 
 ```text
 scripts/setup_godot_vita.sh [options]

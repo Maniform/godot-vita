@@ -86,7 +86,8 @@ install_host_dependencies() {
   "${SUDO[@]}" apt-get install -y \
     build-essential git cmake python-is-python3 python3 python3-pip scons \
     pkg-config libx11-dev libxcursor-dev libxinerama-dev libxrandr-dev \
-    libxi-dev libgl-dev libxext-dev libxrender-dev mingw-w64 \
+    libxi-dev libgl-dev libxext-dev libxrender-dev libasound2-dev \
+    libpulse-dev libspeechd-dev libudev-dev mingw-w64 \
     curl xz-utils file zip unzip ca-certificates
 }
 

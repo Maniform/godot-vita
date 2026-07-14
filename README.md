@@ -60,6 +60,9 @@ editor, the applicable Windows editor, and the export templates for those
 platforms and Vita. It may ask for the `sudo` password while installing system
 packages and VitaSDK.
 
+The Linux editor dependencies include ALSA and PulseAudio audio support, Speech
+Dispatcher for text-to-speech, and libudev for controller hotplugging.
+
 The generated editors are placed in `bin/`. The bundle that can be imported
 from the Godot export-template manager is written to:
 
