@@ -174,8 +174,7 @@ Error OS_Vita::initialize(const VideoMode &p_desired, int p_video_driver, int p_
 	motion_sampling = sceMotionStartSampling() >= 0;
 	// VitaSDK does not expose raw magnetic-field samples. Enabling the
 	// magnetometer only makes the calculated NED orientation matrix available;
-	// it must not be passed to Input::set_magnetometer().
-	magnetometer_sampling = false;
+	// it must not be passed to Input::set_magnetometer(), which expects microteslas.
 
 	return OK;
 }
@@ -190,10 +189,6 @@ void OS_Vita::delete_main_loop() {
 }
 
 void OS_Vita::finalize() {
-	if (magnetometer_sampling) {
-		sceMotionMagnetometerOff();
-		magnetometer_sampling = false;
-	}
 	if (motion_sampling) {
 		sceMotionStopSampling();
 		motion_sampling = false;
@@ -378,10 +373,6 @@ void OS_Vita::process_accelerometer(const Vector3 &m_accelerometer) {
 
 void OS_Vita::process_gravity(const Vector3 &m_gravity) {
 	input->set_gravity(m_gravity);
-}
-
-void OS_Vita::process_magnetometer(const Vector3 &m_magnetometer) {
-	input->set_magnetometer(m_magnetometer);
 }
 
 void OS_Vita::process_gyroscope(const Vector3 &m_gyroscope) {
@@ -616,7 +607,6 @@ OS_Vita::OS_Vita() {
 	visual_server = nullptr;
 	gl_context = nullptr;
 	motion_sampling = false;
-	magnetometer_sampling = false;
 	gravity = Vector3();
 	for (int port = 0; port < TOUCH_PORT_COUNT; port++) {
 		touch_sampling[port] = false;

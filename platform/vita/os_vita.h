@@ -80,11 +80,9 @@ class OS_Vita : public OS {
 	SceMotionSensorState motion_sensor_state;
 	Vector3 gravity;
 	bool motion_sampling;
-	bool magnetometer_sampling;
 	void process_motion();
 	void process_accelerometer(const Vector3 &m_accelerometer);
 	void process_gravity(const Vector3 &m_gravity);
-	void process_magnetometer(const Vector3 &m_magnetometer);
 	void process_gyroscope(const Vector3 &m_gyroscope);
 
 	MainLoop *main_loop;
