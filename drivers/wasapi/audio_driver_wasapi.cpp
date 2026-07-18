@@ -37,7 +37,9 @@
 
 #include <functiondiscoverykeys.h>
 
-#if !defined(__aarch64__) && !defined(PKEY_Device_FriendlyName)
+// LLVM-MinGW provides this property key in libuuid. Defining it here as well
+// causes a duplicate symbol when cross-compiling Windows x86_64 with Clang.
+#if !defined(__aarch64__) && !(defined(MINGW_ENABLED) && defined(__clang__))
 
 #undef DEFINE_PROPERTYKEY
 /* clang-format off */

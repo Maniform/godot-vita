@@ -81,7 +81,40 @@ configure_shell() {
   export PATH="$VITASDK/bin:$PATH"
 }
 
+configure_amd64_apt_sources() {
+  local ubuntu_sources=/etc/apt/sources.list.d/ubuntu.sources
+  local amd64_sources=/etc/apt/sources.list.d/ubuntu-amd64.sources
+  local codename=${VERSION_CODENAME:-noble}
+
+  if [[ -f $ubuntu_sources ]] && grep -Fq "ports.ubuntu.com/ubuntu-ports" "$ubuntu_sources"; then
+    if ! grep -q "^Architectures:" "$ubuntu_sources"; then
+      "${SUDO[@]}" sed -i "/^Types:/a Architectures: arm64" "$ubuntu_sources"
+    fi
+  fi
+
+  "${SUDO[@]}" tee "$amd64_sources" >/dev/null <<EOF
+Types: deb
+URIs: http://archive.ubuntu.com/ubuntu/
+Suites: $codename $codename-updates $codename-backports
+Components: main universe restricted multiverse
+Architectures: amd64
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+
+Types: deb
+URIs: http://security.ubuntu.com/ubuntu/
+Suites: $codename-security
+Components: main universe restricted multiverse
+Architectures: amd64
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+}
+
 install_host_dependencies() {
+  if [[ $HOST_ARCH == aarch64 ]]; then
+    "${SUDO[@]}" dpkg --add-architecture amd64
+    configure_amd64_apt_sources
+  fi
+
   "${SUDO[@]}" apt-get update
   "${SUDO[@]}" apt-get install -y \
     build-essential git cmake python-is-python3 python3 python3-pip scons \
@@ -89,6 +122,10 @@ install_host_dependencies() {
     libxi-dev libgl-dev libxext-dev libxrender-dev libasound2-dev \
     libpulse-dev libspeechd-dev libudev-dev mingw-w64 \
     curl xz-utils file zip unzip ca-certificates
+
+  if [[ $HOST_ARCH == aarch64 ]]; then
+    "${SUDO[@]}" apt-get install -y qemu-user-binfmt libc6:amd64 libzstd1:amd64
+  fi
 }
 
 install_vitasdk() {

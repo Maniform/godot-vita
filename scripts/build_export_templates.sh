@@ -15,16 +15,38 @@ VITAGL=${VITAGL:-no}
 VITA_PVR_SDK=${VITA_PVR_SDK:-${VITASDK:-/usr/local/vitasdk}/arm-vita-eabi}
 mkdir -p "$STAGE"
 
+check_vitasdk() {
+  local vitasdk=${VITASDK:-/usr/local/vitasdk}
+  local compiler="$vitasdk/bin/arm-vita-eabi-g++"
+
+  test -x "$compiler" || {
+    echo "VitaSDK compiler not found: $compiler" >&2
+    echo "Run scripts/setup_godot_vita.sh --install-only first." >&2
+    exit 1
+  }
+
+  if ! "$compiler" -x c++ -c /dev/null -o /dev/null >/dev/null 2>&1; then
+    echo "VitaSDK compiler cannot run on the $(uname -m) host: $compiler" >&2
+    if [[ $(uname -m) == aarch64 || $(uname -m) == arm64 ]]; then
+      echo "VitaSDK uses x86-64 tools; install qemu-user-binfmt, libc6:amd64 and libzstd1:amd64." >&2
+      echo "Run scripts/setup_godot_vita.sh --install-only to install them." >&2
+    fi
+    exit 1
+  fi
+}
+
 build_windows_x64() {
   local compiler_args=()
+  local binary_arch=64
   if [[ $(uname -m) == aarch64 || $(uname -m) == arm64 ]]; then
     test -x "${X64_LLVM_PREFIX}clang++" || { echo "LLVM-MinGW x64 not found: ${X64_LLVM_PREFIX}clang++" >&2; exit 1; }
     compiler_args=(arch=x86_64 use_llvm=yes mingw_prefix_64="$X64_LLVM_PREFIX")
+    binary_arch=x86_64
   fi
   scons platform=windows target=release tools=no bits=64 use_mingw=yes "${compiler_args[@]}" debug_symbols=no lto=none -j"$JOBS"
-  mv -f bin/godot.windows.opt.64.exe "$STAGE/windows_64_release.exe"
+  mv -f "bin/godot.windows.opt.$binary_arch.exe" "$STAGE/windows_64_release.exe"
   scons platform=windows target=release_debug tools=no bits=64 use_mingw=yes "${compiler_args[@]}" debug_symbols=no lto=none -j"$JOBS"
-  mv -f bin/godot.windows.opt.debug.64.exe "$STAGE/windows_64_debug.exe"
+  mv -f "bin/godot.windows.opt.debug.$binary_arch.exe" "$STAGE/windows_64_debug.exe"
 }
 
 build_windows_arm64() {
@@ -36,10 +58,14 @@ build_windows_arm64() {
 }
 
 build_linux() {
+  local binary_arch=64
+  if [[ $(uname -m) == aarch64 || $(uname -m) == arm64 ]]; then
+    binary_arch=arm64
+  fi
   scons platform=x11 target=release tools=no bits=64 debug_symbols=no lto=none -j"$JOBS"
-  mv -f bin/godot.x11.opt.64 "$STAGE/linux_x11_64_release"
+  mv -f "bin/godot.x11.opt.$binary_arch" "$STAGE/linux_x11_64_release"
   scons platform=x11 target=release_debug tools=no bits=64 debug_symbols=no lto=none -j"$JOBS"
-  mv -f bin/godot.x11.opt.debug.64 "$STAGE/linux_x11_64_debug"
+  mv -f "bin/godot.x11.opt.debug.$binary_arch" "$STAGE/linux_x11_64_debug"
 }
 
 build_vita_variant() {
@@ -53,6 +79,7 @@ build_vita_variant() {
 }
 
 build_vita() {
+  check_vitasdk
   build_vita_variant release vita_release.zip
   build_vita_variant release_debug vita_debug.zip
 }

@@ -172,9 +172,10 @@ Error OS_Vita::initialize(const VideoMode &p_desired, int p_video_driver, int p_
 	}
 
 	motion_sampling = sceMotionStartSampling() >= 0;
-	if (motion_sampling) {
-		magnetometer_sampling = sceMotionMagnetometerOn() >= 0;
-	}
+	// VitaSDK does not expose raw magnetic-field samples. Enabling the
+	// magnetometer only makes the calculated NED orientation matrix available;
+	// it must not be passed to Input::set_magnetometer().
+	magnetometer_sampling = false;
 
 	return OK;
 }
@@ -354,25 +355,21 @@ void OS_Vita::process_touch_port(SceTouchPortType p_port) {
 }
 
 void OS_Vita::process_motion() {
-	if (!motion_sampling || sceMotionGetState(&motion_state) < 0) {
+	if (!motion_sampling || sceMotionGetSensorState(&motion_sensor_state, 1) < 0) {
 		return;
 	}
 
-	const Vector3 acceleration(motion_state.acceleration.x, motion_state.acceleration.y, motion_state.acceleration.z);
+	// SceMotionState is a calculated orientation state. In particular, its
+	// acceleration and angularVelocity fields are not the raw sensor stream.
+	// SceMotionSensorState provides the actual accelerometer and gyro samples.
+	const Vector3 acceleration(motion_sensor_state.accelerometer.x, motion_sensor_state.accelerometer.y, motion_sensor_state.accelerometer.z);
 	process_accelerometer(acceleration);
 	// SceMotion has no separate continuous gravity vector. Filtering the
-	// accelerometer gives Godot a useful gravity estimate instead of the coarse
-	// -1/0/1 basicOrientation value.
+	// raw accelerometer gives Godot a useful gravity estimate instead of the
+	// coarse -1/0/1 basicOrientation value.
 	gravity = gravity.linear_interpolate(acceleration, 0.2f);
 	process_gravity(gravity);
-	process_gyroscope(Vector3(motion_state.angularVelocity.x, motion_state.angularVelocity.y, motion_state.angularVelocity.z));
-
-	if (magnetometer_sampling && motion_state.magFieldStability == SCE_MOTION_MAGFIELD_STABLE) {
-		// VitaSDK exposes magnetic north through the NED matrix, not raw field
-		// strength in microteslas. Publish the normalized north direction.
-		const Vector3 magnetic_north(motion_state.nedMatrix.x.x, motion_state.nedMatrix.x.y, motion_state.nedMatrix.x.z);
-		process_magnetometer(magnetic_north.normalized());
-	}
+	process_gyroscope(Vector3(motion_sensor_state.gyro.x, motion_sensor_state.gyro.y, motion_sensor_state.gyro.z));
 }
 
 void OS_Vita::process_accelerometer(const Vector3 &m_accelerometer) {

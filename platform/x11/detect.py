@@ -132,6 +132,8 @@ def configure(env):
         env.Append(LINKFLAGS=["-m64"])
 
     machines = {
+        "aarch64": "arm64",
+        "arm64": "arm64",
         "riscv64": "rv64",
         "ppc64le": "ppc64",
         "ppc64": "ppc64",
