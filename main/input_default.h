@@ -48,6 +48,9 @@ class InputDefault : public Input {
 	Vector3 accelerometer;
 	Vector3 magnetometer;
 	Vector3 gyroscope;
+	Vector3 device_orientation;
+	Quat device_orientation_quaternion;
+	bool device_orientation_available;
 	Vector2 mouse_pos;
 	MainLoop *main_loop;
 	bool legacy_just_pressed_behavior = false;
@@ -261,6 +264,9 @@ public:
 	virtual Vector3 get_accelerometer() const;
 	virtual Vector3 get_magnetometer() const;
 	virtual Vector3 get_gyroscope() const;
+	virtual Vector3 get_device_orientation() const;
+	virtual Quat get_device_orientation_quaternion() const;
+	virtual bool is_device_orientation_available() const;
 
 	virtual Point2 get_mouse_position() const;
 	virtual Point2 get_last_mouse_speed();
@@ -275,6 +281,7 @@ public:
 	virtual void set_accelerometer(const Vector3 &p_accel);
 	virtual void set_magnetometer(const Vector3 &p_magnetometer);
 	virtual void set_gyroscope(const Vector3 &p_gyroscope);
+	virtual void set_device_orientation_quaternion(const Quat &p_orientation, bool p_available = true);
 	void set_joy_axis(int p_device, int p_axis, float p_value);
 
 	virtual void start_joy_vibration(int p_device, float p_weak_magnitude, float p_strong_magnitude, float p_duration = 0);

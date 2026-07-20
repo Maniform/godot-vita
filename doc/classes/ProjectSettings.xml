@@ -676,6 +676,42 @@
 			If [code]false[/code], no input will be lost.
 			[b]Note:[/b] You should in nearly all cases prefer the [code]false[/code] setting. The legacy behavior is to enable supporting old projects that rely on the old logic, without changes to script.
 		</member>
+		<member name="input_devices/sensors/vita/orientation/absolute_correction_time" type="float" setter="" getter="" default="4.0">
+			Time constant in seconds for correcting gyroscope yaw drift from the Vita's absolute magnetic orientation. Larger values produce slower, smoother corrections. A value of [code]0.0[/code] disables ongoing absolute correction.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/absolute_max_correction_rate" type="float" setter="" getter="" default="3.0">
+			Maximum absolute yaw correction rate in degrees per second.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/absolute_validation_sample_count" type="int" setter="" getter="" default="15">
+			Number of consecutive stationary samples for which the absolute yaw variation must agree with gyroscope integration before drift correction is allowed.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/absolute_validation_tolerance" type="float" setter="" getter="" default="8.0">
+			Maximum disagreement in degrees between absolute yaw variation and gyroscope-integrated yaw variation. Larger disagreements disable drift correction until the references agree again.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/absolute_outlier_angle" type="float" setter="" getter="" default="90.0">
+			Rejects absolute heading corrections whose error exceeds this angle in degrees.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/acceleration_tolerance" type="float" setter="" getter="" default="0.2">
+			Maximum difference from 1 g for using the accelerometer as a gravity reference.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/accelerometer_correction_time" type="float" setter="" getter="" default="0.5">
+			Time constant in seconds for correcting pitch and roll from gravity. A value of [code]0.0[/code] disables this correction.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/enabled" type="bool" setter="" getter="" default="true">
+			Enables absolute device orientation tracking on Vita.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/gyro_bias_learning_time" type="float" setter="" getter="" default="10.0">
+			Time constant in seconds for learning gyroscope bias while the Vita is stationary. A value of [code]0.0[/code] disables bias learning after initialization.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/initialization_sample_count" type="int" setter="" getter="" default="12">
+			Number of consecutive stationary samples with a stable magnetic field required before publishing the initial absolute orientation.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/initialization_timeout" type="float" setter="" getter="" default="1.0">
+			Seconds before relative tilt tracking starts while the engine continues waiting for a stable absolute reference. Relative tracking is not exposed as an available absolute orientation.
+		</member>
+		<member name="input_devices/sensors/vita/orientation/stationary_gyro_threshold" type="float" setter="" getter="" default="0.015">
+			Maximum angular speed in radians per second at which the Vita is considered stationary for initialization, gyroscope bias learning, and absolute yaw validation.
+		</member>
 		<member name="input_devices/pointing/android/enable_long_press_as_right_click" type="bool" setter="" getter="" default="false">
 			If [code]true[/code], long press events on an Android touchscreen are transformed into right click events.
 		</member>

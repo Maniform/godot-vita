@@ -91,6 +91,19 @@
 				Returns the currently assigned cursor shape (see [enum CursorShape]).
 			</description>
 		</method>
+		<method name="get_device_orientation" qualifiers="const">
+			<return type="Vector3" />
+			<description>
+				Returns the absolute device orientation as Euler angles in radians. On Vita, yaw zero points toward magnetic north, and the value is derived from the same quaternion as [method get_device_orientation_quaternion]. Returns [constant Vector3.ZERO] when unavailable.
+				[b]Note:[/b] Prefer the quaternion getter when applying the orientation to a 3D node, as Euler angles contain discontinuities.
+			</description>
+		</method>
+		<method name="get_device_orientation_quaternion" qualifiers="const">
+			<return type="Quat" />
+			<description>
+				Returns the normalized absolute orientation of the device. On Vita, gyroscope integration provides the short-term motion, the accelerometer corrects tilt, and a magnetic reference corrects long-term yaw drift only after its variation agrees with the gyroscope while stationary. Returns the identity quaternion when unavailable.
+			</description>
+		</method>
 		<method name="get_gravity" qualifiers="const">
 			<return type="Vector3" />
 			<description>
@@ -250,6 +263,12 @@
 				Returns [code]true[/code] if the system knows the specified device. This means that it sets all button and axis indices exactly as defined in [enum JoystickList]. Unknown joypads are not expected to match these constants, but you can still retrieve events from them.
 			</description>
 		</method>
+		<method name="is_device_orientation_available" qualifiers="const">
+			<return type="bool" />
+			<description>
+				Returns [code]true[/code] once an absolute device orientation has been initialized. On Vita, initialization waits for several stationary samples with a stable magnetic reference so the first published orientation does not require a large correction.
+			</description>
+		</method>
 		<method name="is_key_pressed" qualifiers="const">
 			<return type="bool" />
 			<argument index="0" name="scancode" type="int" />
@@ -336,6 +355,15 @@
 				Sets the default cursor shape to be used in the viewport instead of [constant CURSOR_ARROW].
 				[b]Note:[/b] If you want to change the default cursor shape for [Control]'s nodes, use [member Control.mouse_default_cursor_shape] instead.
 				[b]Note:[/b] This method generates an [InputEventMouseMotion] to update cursor immediately.
+			</description>
+		</method>
+		<method name="set_device_orientation_quaternion">
+			<return type="void" />
+			<argument index="0" name="value" type="Quat" />
+			<argument index="1" name="available" type="bool" default="true" />
+			<description>
+				Sets the normalized device orientation and its availability state. This can be used to simulate orientation input on a device without compatible sensors.
+				[b]Note:[/b] This value can be overwritten immediately by a platform orientation tracker.
 			</description>
 		</method>
 		<method name="set_gravity">

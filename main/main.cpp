@@ -1306,6 +1306,30 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		}
 	}
 
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/enabled", true);
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/initialization_sample_count", 12);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/initialization_sample_count", PropertyInfo(Variant::INT, "input_devices/sensors/vita/orientation/initialization_sample_count", PROPERTY_HINT_RANGE, "1,120,1"));
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/initialization_timeout", 1.0);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/initialization_timeout", PropertyInfo(Variant::REAL, "input_devices/sensors/vita/orientation/initialization_timeout", PROPERTY_HINT_RANGE, "0,10,0.05"));
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/accelerometer_correction_time", 0.5);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/accelerometer_correction_time", PropertyInfo(Variant::REAL, "input_devices/sensors/vita/orientation/accelerometer_correction_time", PROPERTY_HINT_RANGE, "0,10,0.05"));
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/absolute_correction_time", 4.0);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/absolute_correction_time", PropertyInfo(Variant::REAL, "input_devices/sensors/vita/orientation/absolute_correction_time", PROPERTY_HINT_RANGE, "0,30,0.1"));
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/absolute_max_correction_rate", 3.0);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/absolute_max_correction_rate", PropertyInfo(Variant::REAL, "input_devices/sensors/vita/orientation/absolute_max_correction_rate", PROPERTY_HINT_RANGE, "0,180,0.1"));
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/absolute_outlier_angle", 90.0);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/absolute_outlier_angle", PropertyInfo(Variant::REAL, "input_devices/sensors/vita/orientation/absolute_outlier_angle", PROPERTY_HINT_RANGE, "0,180,1"));
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/absolute_validation_sample_count", 15);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/absolute_validation_sample_count", PropertyInfo(Variant::INT, "input_devices/sensors/vita/orientation/absolute_validation_sample_count", PROPERTY_HINT_RANGE, "1,120,1"));
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/absolute_validation_tolerance", 8.0);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/absolute_validation_tolerance", PropertyInfo(Variant::REAL, "input_devices/sensors/vita/orientation/absolute_validation_tolerance", PROPERTY_HINT_RANGE, "0,90,0.5"));
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/stationary_gyro_threshold", 0.015);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/stationary_gyro_threshold", PropertyInfo(Variant::REAL, "input_devices/sensors/vita/orientation/stationary_gyro_threshold", PROPERTY_HINT_RANGE, "0,1,0.001"));
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/acceleration_tolerance", 0.2);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/acceleration_tolerance", PropertyInfo(Variant::REAL, "input_devices/sensors/vita/orientation/acceleration_tolerance", PROPERTY_HINT_RANGE, "0,1,0.01"));
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/gyro_bias_learning_time", 10.0);
+	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/gyro_bias_learning_time", PropertyInfo(Variant::REAL, "input_devices/sensors/vita/orientation/gyro_bias_learning_time", PROPERTY_HINT_RANGE, "0,60,0.1"));
+
 	Engine::get_singleton()->set_iterations_per_second(GLOBAL_DEF("physics/common/physics_fps", 60));
 	ProjectSettings::get_singleton()->set_custom_property_info("physics/common/physics_fps", PropertyInfo(Variant::INT, "physics/common/physics_fps", PROPERTY_HINT_RANGE, "1,1000,1"));
 	Engine::get_singleton()->set_physics_jitter_fix(GLOBAL_DEF("physics/common/physics_jitter_fix", 0.5));

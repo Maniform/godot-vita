@@ -57,6 +57,25 @@ static void _setup_clock() {
 	_clock_start = ((uint64_t)tv_now.tv_nsec / 1000L) + (uint64_t)tv_now.tv_sec * 1000000L;
 }
 
+static bool _get_ned_heading(const SceFMatrix4 &p_ned, real_t &r_heading) {
+	// SceFMatrix4 exposes the matrix columns as x/y/z vectors. Build the
+	// corresponding Godot rows, then transform the console's local forward axis.
+	const Basis ned_orientation(
+			Vector3(p_ned.x.x, p_ned.y.x, p_ned.z.x),
+			Vector3(p_ned.x.y, p_ned.y.y, p_ned.z.y),
+			Vector3(p_ned.x.z, p_ned.y.z, p_ned.z.z));
+	Vector3 forward_ned = ned_orientation.xform(Vector3(0.0f, 0.0f, -1.0f));
+	forward_ned.z = 0.0f;
+	if (forward_ned.length_squared() <= CMP_EPSILON) {
+		return false;
+	}
+
+	forward_ned.normalize();
+	// NED X is north and NED Y is east. Positive Godot yaw turns west.
+	r_heading = Math::atan2(-forward_ned.y, forward_ned.x);
+	return true;
+}
+
 int OS_Vita::get_video_driver_count() const {
 	return 1;
 }
@@ -171,10 +190,30 @@ Error OS_Vita::initialize(const VideoMode &p_desired, int p_video_driver, int p_
 				sceTouchSetSamplingState(port, SCE_TOUCH_SAMPLING_STATE_START) >= 0;
 	}
 
+	orientation_enabled = GLOBAL_GET("input_devices/sensors/vita/orientation/enabled");
+	VitaOrientationTracker::Settings orientation_settings;
+	orientation_settings.initialization_sample_count = GLOBAL_GET("input_devices/sensors/vita/orientation/initialization_sample_count");
+	orientation_settings.initialization_timeout = GLOBAL_GET("input_devices/sensors/vita/orientation/initialization_timeout");
+	orientation_settings.accelerometer_correction_time = GLOBAL_GET("input_devices/sensors/vita/orientation/accelerometer_correction_time");
+	orientation_settings.absolute_correction_time = GLOBAL_GET("input_devices/sensors/vita/orientation/absolute_correction_time");
+	orientation_settings.absolute_max_correction_rate = Math::deg2rad((real_t)GLOBAL_GET("input_devices/sensors/vita/orientation/absolute_max_correction_rate"));
+	orientation_settings.absolute_outlier_angle = Math::deg2rad((real_t)GLOBAL_GET("input_devices/sensors/vita/orientation/absolute_outlier_angle"));
+	orientation_settings.absolute_validation_sample_count = GLOBAL_GET("input_devices/sensors/vita/orientation/absolute_validation_sample_count");
+	orientation_settings.absolute_validation_tolerance = Math::deg2rad((real_t)GLOBAL_GET("input_devices/sensors/vita/orientation/absolute_validation_tolerance"));
+	orientation_settings.stationary_gyro_threshold = GLOBAL_GET("input_devices/sensors/vita/orientation/stationary_gyro_threshold");
+	orientation_settings.acceleration_tolerance = GLOBAL_GET("input_devices/sensors/vita/orientation/acceleration_tolerance");
+	orientation_settings.gyro_bias_learning_time = GLOBAL_GET("input_devices/sensors/vita/orientation/gyro_bias_learning_time");
+	orientation_tracker.set_settings(orientation_settings);
+	orientation_tracker.reset();
+
 	motion_sampling = sceMotionStartSampling() >= 0;
-	// VitaSDK does not expose raw magnetic-field samples. Enabling the
-	// magnetometer only makes the calculated NED orientation matrix available;
-	// it must not be passed to Input::set_magnetometer(), which expects microteslas.
+	if (motion_sampling && orientation_enabled) {
+		sceMotionSetTiltCorrection(1);
+		sceMotionSetGyroBiasCorrection(1);
+		// VitaSDK exposes a calculated NED orientation, not raw magnetic-field
+		// strength in microteslas, so it must not be sent to set_magnetometer().
+		magnetometer_sampling = sceMotionMagnetometerOn() >= 0;
+	}
 
 	return OK;
 }
@@ -189,6 +228,10 @@ void OS_Vita::delete_main_loop() {
 }
 
 void OS_Vita::finalize() {
+	if (magnetometer_sampling) {
+		sceMotionMagnetometerOff();
+		magnetometer_sampling = false;
+	}
 	if (motion_sampling) {
 		sceMotionStopSampling();
 		motion_sampling = false;
@@ -354,17 +397,23 @@ void OS_Vita::process_motion() {
 		return;
 	}
 
-	// SceMotionState is a calculated orientation state. In particular, its
-	// acceleration and angularVelocity fields are not the raw sensor stream.
-	// SceMotionSensorState provides the actual accelerometer and gyro samples.
 	const Vector3 acceleration(motion_sensor_state.accelerometer.x, motion_sensor_state.accelerometer.y, motion_sensor_state.accelerometer.z);
+	const Vector3 gyroscope(motion_sensor_state.gyro.x, motion_sensor_state.gyro.y, motion_sensor_state.gyro.z);
 	process_accelerometer(acceleration);
-	// SceMotion has no separate continuous gravity vector. Filtering the
-	// raw accelerometer gives Godot a useful gravity estimate instead of the
-	// coarse -1/0/1 basicOrientation value.
 	gravity = gravity.linear_interpolate(acceleration, 0.2f);
 	process_gravity(gravity);
-	process_gyroscope(Vector3(motion_sensor_state.gyro.x, motion_sensor_state.gyro.y, motion_sensor_state.gyro.z));
+	process_gyroscope(gyroscope);
+
+	bool absolute_heading_valid = false;
+	real_t absolute_heading = 0.0f;
+	if (orientation_enabled && magnetometer_sampling && sceMotionGetState(&motion_state) >= 0 && motion_state.magFieldStability == SCE_MOTION_MAGFIELD_STABLE) {
+		absolute_heading_valid = _get_ned_heading(motion_state.nedMatrix, absolute_heading);
+	}
+
+	if (orientation_enabled) {
+		orientation_tracker.update(acceleration, gyroscope, motion_sensor_state.timestamp, absolute_heading_valid, absolute_heading);
+		process_device_orientation(orientation_tracker.get_orientation(), orientation_tracker.is_orientation_available());
+	}
 }
 
 void OS_Vita::process_accelerometer(const Vector3 &m_accelerometer) {
@@ -377,6 +426,10 @@ void OS_Vita::process_gravity(const Vector3 &m_gravity) {
 
 void OS_Vita::process_gyroscope(const Vector3 &m_gyroscope) {
 	input->set_gyroscope(m_gyroscope);
+}
+
+void OS_Vita::process_device_orientation(const Quat &p_orientation, bool p_available) {
+	input->set_device_orientation_quaternion(p_orientation, p_available);
 }
 
 String OS_Vita::get_data_path() const {
@@ -607,6 +660,8 @@ OS_Vita::OS_Vita() {
 	visual_server = nullptr;
 	gl_context = nullptr;
 	motion_sampling = false;
+	magnetometer_sampling = false;
+	orientation_enabled = true;
 	gravity = Vector3();
 	for (int port = 0; port < TOUCH_PORT_COUNT; port++) {
 		touch_sampling[port] = false;

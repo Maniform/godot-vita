@@ -334,6 +334,21 @@ Vector3 InputDefault::get_gyroscope() const {
 	return gyroscope;
 }
 
+Vector3 InputDefault::get_device_orientation() const {
+	_THREAD_SAFE_METHOD_
+	return device_orientation;
+}
+
+Quat InputDefault::get_device_orientation_quaternion() const {
+	_THREAD_SAFE_METHOD_
+	return device_orientation_quaternion;
+}
+
+bool InputDefault::is_device_orientation_available() const {
+	_THREAD_SAFE_METHOD_
+	return device_orientation_available;
+}
+
 void InputDefault::_parse_input_event_impl(const Ref<InputEvent> &p_event, bool p_is_emulated) {
 	// This function does the final delivery of the input event to user land.
 	// Regardless where the event came from originally, this has to happen on the main thread.
@@ -606,6 +621,16 @@ void InputDefault::set_gyroscope(const Vector3 &p_gyroscope) {
 	gyroscope = p_gyroscope;
 }
 
+void InputDefault::set_device_orientation_quaternion(const Quat &p_orientation, bool p_available) {
+	_THREAD_SAFE_METHOD_
+
+	if (p_orientation.length_squared() > CMP_EPSILON) {
+		device_orientation_quaternion = p_orientation.normalized();
+		device_orientation = device_orientation_quaternion.get_euler();
+	}
+	device_orientation_available = p_available;
+}
+
 void InputDefault::set_main_loop(MainLoop *p_main_loop) {
 	main_loop = p_main_loop;
 }
@@ -850,6 +875,9 @@ InputDefault::InputDefault() {
 	mouse_from_touch_index = -1;
 	main_loop = nullptr;
 	default_shape = CURSOR_ARROW;
+	device_orientation = Vector3();
+	device_orientation_quaternion = Quat();
+	device_orientation_available = false;
 
 	fallback_mapping = -1;
 

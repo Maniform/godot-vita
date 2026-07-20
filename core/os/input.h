@@ -31,6 +31,7 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+#include "core/math/quat.h"
 #include "core/object.h"
 #include "core/os/main_loop.h"
 #include "core/os/thread_safe.h"
@@ -119,10 +120,14 @@ public:
 	virtual Vector3 get_accelerometer() const = 0;
 	virtual Vector3 get_magnetometer() const = 0;
 	virtual Vector3 get_gyroscope() const = 0;
+	virtual Vector3 get_device_orientation() const = 0;
+	virtual Quat get_device_orientation_quaternion() const = 0;
+	virtual bool is_device_orientation_available() const = 0;
 	virtual void set_gravity(const Vector3 &p_gravity) = 0;
 	virtual void set_accelerometer(const Vector3 &p_accel) = 0;
 	virtual void set_magnetometer(const Vector3 &p_magnetometer) = 0;
 	virtual void set_gyroscope(const Vector3 &p_gyroscope) = 0;
+	virtual void set_device_orientation_quaternion(const Quat &p_orientation, bool p_available = true) = 0;
 
 	virtual void action_press(const StringName &p_action, float p_strength = 1.f) = 0;
 	virtual void action_release(const StringName &p_action) = 0;

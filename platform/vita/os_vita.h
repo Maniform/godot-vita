@@ -40,6 +40,7 @@
 #include "main/input_default.h"
 #include "servers/audio_server.h"
 #include "servers/visual/rasterizer.h"
+#include "vita_orientation_tracker.h"
 
 #include <psp2/appmgr.h>
 #include <psp2/kernel/clib.h>
@@ -78,12 +79,17 @@ class OS_Vita : public OS {
 	Vector2 get_touch_position(SceTouchPortType p_port, const SceTouchReport &p_report) const;
 
 	SceMotionSensorState motion_sensor_state;
+	SceMotionState motion_state;
+	VitaOrientationTracker orientation_tracker;
 	Vector3 gravity;
 	bool motion_sampling;
+	bool magnetometer_sampling;
+	bool orientation_enabled;
 	void process_motion();
 	void process_accelerometer(const Vector3 &m_accelerometer);
 	void process_gravity(const Vector3 &m_gravity);
 	void process_gyroscope(const Vector3 &m_gyroscope);
+	void process_device_orientation(const Quat &p_orientation, bool p_available);
 
 	MainLoop *main_loop;
 
