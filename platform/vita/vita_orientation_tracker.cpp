@@ -10,7 +10,7 @@
 #include "core/math/math_funcs.h"
 
 VitaOrientationTracker::Settings::Settings() {
-	initialization_sample_count = 12;
+	initialization_sample_count = 1;
 	initialization_timeout = 1.0f;
 	accelerometer_correction_time = 0.5f;
 	absolute_correction_time = 4.0f;

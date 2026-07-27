@@ -1307,7 +1307,7 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 	}
 
 	GLOBAL_DEF("input_devices/sensors/vita/orientation/enabled", true);
-	GLOBAL_DEF("input_devices/sensors/vita/orientation/initialization_sample_count", 12);
+	GLOBAL_DEF("input_devices/sensors/vita/orientation/initialization_sample_count", 1);
 	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/initialization_sample_count", PropertyInfo(Variant::INT, "input_devices/sensors/vita/orientation/initialization_sample_count", PROPERTY_HINT_RANGE, "1,120,1"));
 	GLOBAL_DEF("input_devices/sensors/vita/orientation/initialization_timeout", 1.0);
 	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/initialization_timeout", PropertyInfo(Variant::REAL, "input_devices/sensors/vita/orientation/initialization_timeout", PROPERTY_HINT_RANGE, "0,10,0.05"));

@@ -703,7 +703,7 @@
 		<member name="input_devices/sensors/vita/orientation/gyro_bias_learning_time" type="float" setter="" getter="" default="10.0">
 			Time constant in seconds for learning gyroscope bias while the Vita is stationary. A value of [code]0.0[/code] disables bias learning after initialization.
 		</member>
-		<member name="input_devices/sensors/vita/orientation/initialization_sample_count" type="int" setter="" getter="" default="12">
+		<member name="input_devices/sensors/vita/orientation/initialization_sample_count" type="int" setter="" getter="" default="1">
 			Number of consecutive stationary samples with a stable magnetic field required before publishing the initial absolute orientation.
 		</member>
 		<member name="input_devices/sensors/vita/orientation/initialization_timeout" type="float" setter="" getter="" default="1.0">
