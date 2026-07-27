@@ -7,11 +7,16 @@ toolchains.
 
 ## `setup_godot_vita.sh`
 
-This is the main setup script. It verifies Ubuntu 24.04, installs the host and
-X11 development packages, ALSA, PulseAudio, Speech Dispatcher, and libudev,
-configures VitaSDK in the shell, installs or updates VitaSDK and PVR_PSP2,
-configures MinGW, and builds the supported desktop editors and export
-templates.
+This is the main setup script for Ubuntu 24.04, WSL, and macOS. It installs the
+host dependencies before compiling, configures VitaSDK in the shell, installs
+or updates VitaSDK and PVR_PSP2, and builds the supported desktop editors and
+export templates.
+
+On macOS, Homebrew and the Xcode command-line tools must already be available.
+The script installs CMake, GNU sed, pkg-config, Python, SCons, and wget with
+Homebrew. The native macOS editor, the native `osx.zip` export template, and
+the Vita templates are built by default. Current VitaSDK releases provide
+native Apple Silicon tools.
 
 ```text
 scripts/setup_godot_vita.sh [options]
@@ -19,11 +24,11 @@ scripts/setup_godot_vita.sh [options]
 
 Options:
 
-- `--with-cross-arch` installs LLVM-MinGW and also builds the Windows editor
-  and export templates for the architecture opposite to the host: ARM64 on
-  x86_64, or x86_64 on ARM64.
-  It does not cross-compile the Linux editor because this branch's X11 platform
-  does not support that configuration.
+- `--with-cross-arch` builds the desktop editor and export templates for the
+  architecture opposite to the host. On Ubuntu this installs LLVM-MinGW and
+  cross-compiles Windows. On macOS it builds both x86_64 and ARM64 and creates
+  universal editor and template binaries with `lipo`. It does not
+  cross-compile Linux because this branch's X11 platform does not support it.
 - `--install-only` installs and configures all dependencies, but does not run
   any builds. Use it to prepare a machine or repair its toolchains.
 - `--build-only` skips package and SDK installation and builds with the tools
@@ -33,7 +38,7 @@ Options:
 Important environment variables:
 
 - `VITASDK` changes the VitaSDK installation directory. The default is
-  `/usr/local/vitasdk`.
+  `/usr/local/vitasdk` on Ubuntu and `.toolchains/vitasdk` on macOS.
 - `VDPM_DIR` changes the local VDPM checkout. The default is
   `.toolchains/vdpm` in the repository.
 - `JOBS` sets the number of parallel SCons jobs used by the build scripts. The
@@ -43,22 +48,26 @@ Important environment variables:
   cross-compilation. The current default is `20260407`.
 - `FORCE_VITASDK_INSTALL=yes` forces a full VitaSDK bootstrap instead of using
   `vitasdk-update` on an existing valid installation.
+- `SKIP_VITASDK_UPDATE=yes` keeps an existing valid VitaSDK installation
+  unchanged. This is useful for offline or reproducible rebuilds.
 - `ALLOW_UNSUPPORTED_UBUNTU=yes` bypasses the Ubuntu 24.04 version check. This
   is unsupported and may fail because package or compiler versions differ.
-- `BASHRC` changes the shell startup file updated by the script. The default is
-  the current user's `~/.bashrc`.
+- `SHELL_RC` changes the shell startup file updated by the script. The default
+  is `~/.bashrc` on Ubuntu and `~/.zshrc` on macOS. `BASHRC` remains accepted
+  for compatibility.
 
 The script manages the following environment settings in the shell startup
 file and also exports them for the current run:
 
 ```bash
-export VITASDK=/usr/local/vitasdk
+export VITASDK=/path/to/godot-vita/.toolchains/vitasdk
 export PATH="$VITASDK/bin:$PATH"
 ```
 
 It is safe to run the setup repeatedly. If VitaSDK is already valid, the script
 skips its bootstrap and runs `vitasdk-update`. SCons also reuses the repository
-cache between builds.
+cache between builds. On Ubuntu the default `VITASDK` value in the generated
+block is `/usr/local/vitasdk`.
 
 Examples:
 
@@ -72,7 +81,7 @@ scripts/setup_godot_vita.sh --install-only
 # Rebuild without reinstalling dependencies.
 scripts/setup_godot_vita.sh --build-only
 
-# Also produce the Windows editor and templates for the opposite architecture.
+# Also produce the opposite desktop architecture.
 scripts/setup_godot_vita.sh --with-cross-arch
 ```
 
@@ -82,16 +91,20 @@ Builds `release_debug` desktop editors with `tools=yes`. Its single optional
 positional argument selects the target:
 
 ```text
-scripts/build_editors.sh [all|windows-x64|windows-arm64|linux]
+scripts/build_editors.sh [all|windows-x64|windows-arm64|linux|macos|macos-x64|macos-arm64|macos-universal]
 ```
 
-- `all` is the default and builds Windows x86_64, Windows ARM64, and the native
-  Linux editor. Both Windows toolchains must already be installed.
+- `all` is the default. On Ubuntu it builds Windows x86_64, Windows ARM64, and
+  native Linux. On macOS it builds both macOS architectures and creates
+  `bin/godot.osx.opt.tools.universal`.
 - `windows-x64` builds the 64-bit x86 Windows editor. It uses Ubuntu's
   MinGW-w64 on an x86_64 host and LLVM-MinGW when cross-compiling from ARM64.
 - `windows-arm64` builds the native Windows ARM64 editor with LLVM-MinGW.
 - `linux` builds the Linux X11 editor for the host CPU. `linux-x64` is accepted
   as a compatibility alias, but the script still builds for the host CPU.
+- `macos` builds for the host CPU. `macos-x64` and `macos-arm64` select one
+  architecture explicitly. `macos-universal` builds both and merges them with
+  `lipo`.
 
 Every command in this script sets `tools=yes`. Non-editor binaries with
 `tools=no` are only produced by the separate export-template script.
@@ -112,13 +125,16 @@ Builds both `release` and `release_debug` export templates for the selected
 platform. After every run, it rebuilds and validates the importable TPZ bundle.
 
 ```text
-scripts/build_export_templates.sh [all|windows-x64|windows-arm64|linux|vita]
+scripts/build_export_templates.sh [all|windows-x64|windows-arm64|linux|macos|macos-x64|macos-arm64|macos-universal|vita]
 ```
 
-- `all` is the default and builds every Windows, Linux, and Vita template. Both
-  Windows toolchains must already be available.
+- `all` is the default. On Ubuntu it builds every Windows, Linux, and Vita
+  template. On macOS it builds a universal `osx.zip` plus both Vita templates.
 - `windows-x64`, `windows-arm64`, and `linux` build only that platform's two
   template variants. `linux-x64` is also accepted as an alias for `linux`.
+- `macos`, `macos-x64`, and `macos-arm64` create `osx.zip` with the selected
+  architecture. `macos-universal` creates an `osx.zip` whose debug and release
+  executables contain both x86_64 and ARM64 slices.
 - `vita` builds `vita_release.zip` and `vita_debug.zip`. PVR_PSP2 is the default
   renderer; set `VITAGL=yes` to build with VitaGL instead.
 
@@ -155,8 +171,8 @@ scripts/install_vita_pvr_sdk.sh [installation-prefix]
 ```
 
 - `installation-prefix` is an optional positional argument. It defaults to
-  `$VITASDK/arm-vita-eabi`, or `/usr/local/vitasdk/arm-vita-eabi` when
-  `VITASDK` is unset.
+  `$VITASDK/arm-vita-eabi`, `.toolchains/vitasdk/arm-vita-eabi` on macOS, or
+  `/usr/local/vitasdk/arm-vita-eabi` on Ubuntu when `VITASDK` is unset.
 - `PVR_PSP2_VERSION` selects the release to download and defaults to `3.9`.
 
 The destination must be writable. The main setup script invokes this installer

@@ -1,8 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 VERSION=${PVR_PSP2_VERSION:-3.9}
-PREFIX=${1:-"${VITASDK:-/usr/local/vitasdk}/arm-vita-eabi"}
+if [[ -n ${VITASDK:-} ]]; then
+  DEFAULT_VITASDK=$VITASDK
+elif [[ $(uname -s) == Darwin ]]; then
+  DEFAULT_VITASDK=$ROOT/.toolchains/vitasdk
+else
+  DEFAULT_VITASDK=/usr/local/vitasdk
+fi
+PREFIX=${1:-"$DEFAULT_VITASDK/arm-vita-eabi"}
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
 

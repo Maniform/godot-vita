@@ -2,7 +2,14 @@
 set -euo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
-VITASDK=${VITASDK:-/usr/local/vitasdk}
+HOST_OS=$(uname -s)
+if [[ $HOST_OS == Darwin ]]; then
+  if [[ -z ${VITASDK:-} || ($VITASDK == /usr/local/vitasdk && ! -w /usr/local) ]]; then
+    VITASDK=$ROOT/.toolchains/vitasdk
+  fi
+else
+  VITASDK=${VITASDK:-/usr/local/vitasdk}
+fi
 VDPM_DIR=${VDPM_DIR:-$ROOT/.toolchains/vdpm}
 WITH_CROSS_ARCH=no
 SKIP_INSTALL=no
@@ -12,7 +19,7 @@ usage() {
   cat <<'EOF'
 Usage: scripts/setup_godot_vita.sh [options]
 
-  --with-cross-arch  Install LLVM-MinGW for the opposite Windows architecture
+  --with-cross-arch  Also build the opposite desktop architecture
   --install-only     Install and configure without building
   --build-only       Run the builds without installing
   -h, --help         Show this help
@@ -32,12 +39,12 @@ while (($#)); do
   shift
 done
 
-if [[ $(uname -s) != Linux ]]; then
-  echo "This script requires Ubuntu 24.04 or Ubuntu 24.04 under WSL." >&2
+if [[ $HOST_OS != Linux && $HOST_OS != Darwin ]]; then
+  echo "This script requires Ubuntu 24.04, WSL, or macOS." >&2
   exit 1
 fi
 
-if [[ -r /etc/os-release ]]; then
+if [[ $HOST_OS == Linux && -r /etc/os-release ]]; then
   . /etc/os-release
   if [[ ${ID:-} != ubuntu || ${VERSION_ID:-} != 24.04 ]]; then
     if [[ ${ALLOW_UNSUPPORTED_UBUNTU:-no} != yes ]]; then
@@ -55,7 +62,9 @@ case "$(uname -m)" in
   *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
 esac
 
-if [[ $EUID -eq 0 ]]; then
+if [[ $HOST_OS == Darwin ]]; then
+  SUDO=()
+elif [[ $EUID -eq 0 ]]; then
   SUDO=()
 elif command -v sudo >/dev/null 2>&1; then
   SUDO=(sudo)
@@ -65,18 +74,38 @@ else
 fi
 
 configure_shell() {
-  local bashrc=${BASHRC:-$HOME/.bashrc}
+  local default_rc=$HOME/.bashrc
+  if [[ $HOST_OS == Darwin ]]; then
+    default_rc=$HOME/.zshrc
+  fi
+  local shell_rc=${SHELL_RC:-${BASHRC:-$default_rc}}
   local begin="# >>> godot-vita environment >>>"
   local end="# <<< godot-vita environment <<<"
-  touch "$bashrc"
-  if ! grep -Fq "$begin" "$bashrc"; then
-    {
-      printf '\n%s\n' "$begin"
-      printf 'export VITASDK=%q\n' "$VITASDK"
-      printf 'export PATH="$VITASDK/bin:$PATH"\n'
-      printf '%s\n' "$end"
-    } >> "$bashrc"
+  local temp_rc
+  touch "$shell_rc"
+  if grep -Fq "$begin" "$shell_rc" || grep -Fq "$end" "$shell_rc"; then
+    if ! grep -Fq "$begin" "$shell_rc" || ! grep -Fq "$end" "$shell_rc"; then
+      echo "Incomplete godot-vita environment block in $shell_rc; fix or remove it and rerun." >&2
+      exit 1
+    fi
+    temp_rc=$(mktemp "${TMPDIR:-/tmp}/godot-vita-shell.XXXXXX")
+    awk -v begin="$begin" -v end="$end" '
+      $0 == begin { skip = 1; next }
+      $0 == end { skip = 0; next }
+      !skip { print }
+    ' "$shell_rc" > "$temp_rc"
+    mv "$temp_rc" "$shell_rc"
   fi
+  {
+    printf '\n%s\n' "$begin"
+    printf 'export VITASDK=%q\n' "$VITASDK"
+    printf 'export PATH="$VITASDK/bin:$PATH"\n'
+    printf '%s\n' "$end"
+  } >> "$shell_rc"
+  configure_environment
+}
+
+configure_environment() {
   export VITASDK
   export PATH="$VITASDK/bin:$PATH"
 }
@@ -110,6 +139,19 @@ EOF
 }
 
 install_host_dependencies() {
+  if [[ $HOST_OS == Darwin ]]; then
+    command -v brew >/dev/null 2>&1 || {
+      echo "Homebrew is required. Install it from https://brew.sh and rerun this script." >&2
+      exit 1
+    }
+    xcode-select -p >/dev/null 2>&1 || {
+      echo "The Xcode command-line tools are required. Run: xcode-select --install" >&2
+      exit 1
+    }
+    brew install cmake gnu-sed pkg-config python scons wget yasm
+    return
+  fi
+
   if [[ $HOST_ARCH == aarch64 ]]; then
     "${SUDO[@]}" dpkg --add-architecture amd64
     configure_amd64_apt_sources
@@ -133,8 +175,15 @@ install_vitasdk() {
   local compiler="$VITASDK/bin/arm-vita-eabi-gcc"
 
   if [[ -x $update && -x $compiler && ${FORCE_VITASDK_INSTALL:-no} != yes ]]; then
-    echo "VitaSDK is already installed in $VITASDK; skipping bootstrap."
-    "$update"
+    if [[ ${SKIP_VITASDK_UPDATE:-no} == yes ]]; then
+      echo "VitaSDK is already installed in $VITASDK; skipping update."
+    elif [[ $HOST_OS == Darwin ]]; then
+      local gnu_bin
+      gnu_bin=$(brew --prefix gnu-sed)/libexec/gnubin
+      env PATH="$gnu_bin:$PATH" "$update"
+    else
+      "$update"
+    fi
     return
   fi
 
@@ -144,9 +193,9 @@ install_vitasdk() {
   else
     git clone https://github.com/vitasdk/vdpm "$VDPM_DIR"
   fi
-  (cd "$VDPM_DIR" && ./bootstrap-vitasdk.sh)
+  mkdir -p "$(dirname "$VITASDK")"
+  (cd "$VDPM_DIR" && VITASDK="$VITASDK" ./bootstrap-vitasdk.sh)
   (cd "$VDPM_DIR" && ./install-all.sh)
-  "$update"
 }
 
 select_mingw_posix() {
@@ -165,47 +214,62 @@ if [[ $SKIP_INSTALL == no ]]; then
   install_host_dependencies
   configure_shell
   install_vitasdk
-  select_mingw_posix
-  "${SUDO[@]}" env VITASDK="$VITASDK" PVR_PSP2_VERSION="${PVR_PSP2_VERSION:-3.9}" \
-    "$ROOT/scripts/install_vita_pvr_sdk.sh" "$VITASDK/arm-vita-eabi"
-
-  if [[ $HOST_ARCH == aarch64 || $WITH_CROSS_ARCH == yes ]]; then
-    SKIP_APT=yes "$ROOT/scripts/install_windows_cross_dependencies.sh"
-  fi
-  if [[ $WITH_CROSS_ARCH == yes ]]; then
-    echo "Note: this branch's platform/x11 code does not support cross-compiling Linux for the opposite architecture."
+  if [[ $HOST_OS == Linux ]]; then
+    select_mingw_posix
+    "${SUDO[@]}" env VITASDK="$VITASDK" PVR_PSP2_VERSION="${PVR_PSP2_VERSION:-3.9}" \
+      "$ROOT/scripts/install_vita_pvr_sdk.sh" "$VITASDK/arm-vita-eabi"
+    if [[ $HOST_ARCH == aarch64 || $WITH_CROSS_ARCH == yes ]]; then
+      SKIP_APT=yes "$ROOT/scripts/install_windows_cross_dependencies.sh"
+    fi
+    if [[ $WITH_CROSS_ARCH == yes ]]; then
+      echo "Note: this branch's platform/x11 code does not support cross-compiling Linux for the opposite architecture."
+    fi
+  else
+    VITASDK="$VITASDK" PVR_PSP2_VERSION="${PVR_PSP2_VERSION:-3.9}" \
+      "$ROOT/scripts/install_vita_pvr_sdk.sh" "$VITASDK/arm-vita-eabi"
   fi
 fi
 
 if [[ $SKIP_BUILD == no ]]; then
-  configure_shell
+  configure_environment
   cd "$ROOT"
-  scripts/build_editors.sh linux
-  if [[ $HOST_ARCH == x86_64 ]]; then
-    scripts/build_editors.sh windows-x64
+  if [[ $HOST_OS == Darwin ]]; then
     if [[ $WITH_CROSS_ARCH == yes ]]; then
-      scripts/build_editors.sh windows-arm64
+      scripts/build_editors.sh macos-universal
+      scripts/build_export_templates.sh macos-universal
+    else
+      scripts/build_editors.sh macos
+      scripts/build_export_templates.sh macos
     fi
+    scripts/build_export_templates.sh vita
   else
-    scripts/build_editors.sh windows-arm64
-    if [[ $WITH_CROSS_ARCH == yes ]]; then
+    scripts/build_editors.sh linux
+    if [[ $HOST_ARCH == x86_64 ]]; then
       scripts/build_editors.sh windows-x64
+      if [[ $WITH_CROSS_ARCH == yes ]]; then
+        scripts/build_editors.sh windows-arm64
+      fi
+    else
+      scripts/build_editors.sh windows-arm64
+      if [[ $WITH_CROSS_ARCH == yes ]]; then
+        scripts/build_editors.sh windows-x64
+      fi
     fi
-  fi
 
-  scripts/build_export_templates.sh linux
-  if [[ $HOST_ARCH == x86_64 ]]; then
-    scripts/build_export_templates.sh windows-x64
-    if [[ $WITH_CROSS_ARCH == yes ]]; then
-      scripts/build_export_templates.sh windows-arm64
-    fi
-  else
-    scripts/build_export_templates.sh windows-arm64
-    if [[ $WITH_CROSS_ARCH == yes ]]; then
+    scripts/build_export_templates.sh linux
+    if [[ $HOST_ARCH == x86_64 ]]; then
       scripts/build_export_templates.sh windows-x64
+      if [[ $WITH_CROSS_ARCH == yes ]]; then
+        scripts/build_export_templates.sh windows-arm64
+      fi
+    else
+      scripts/build_export_templates.sh windows-arm64
+      if [[ $WITH_CROSS_ARCH == yes ]]; then
+        scripts/build_export_templates.sh windows-x64
+      fi
     fi
+    scripts/build_export_templates.sh vita
   fi
-  scripts/build_export_templates.sh vita
 fi
 
 echo

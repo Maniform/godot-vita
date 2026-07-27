@@ -3,7 +3,21 @@ set -euo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 cd "$ROOT"
-JOBS=${JOBS:-$(nproc)}
+
+cpu_count() {
+  local count
+  if command -v nproc >/dev/null 2>&1; then
+    nproc
+  elif count=$(sysctl -n hw.logicalcpu 2>/dev/null) && [[ -n $count ]]; then
+    echo "$count"
+  elif count=$(getconf _NPROCESSORS_ONLN 2>/dev/null) && [[ -n $count ]]; then
+    echo "$count"
+  else
+    echo 1
+  fi
+}
+
+JOBS=${JOBS:-$(cpu_count)}
 export SCONS_CACHE="${SCONS_CACHE:-$ROOT/.scons_cache}"
 export SCONS_CACHE_LIMIT="${SCONS_CACHE_LIMIT:-10240}"
 TARGET=${1:-all}
@@ -28,10 +42,48 @@ build_linux() {
   scons platform=x11 target=release_debug tools=yes bits=64 debug_symbols=no lto=none -j"$JOBS"
 }
 
+build_macos_arch() {
+  local arch=$1
+  [[ $(uname -s) == Darwin ]] || {
+    echo "macOS builds require a macOS host and the Xcode command-line tools." >&2
+    exit 1
+  }
+  xcrun --sdk macosx --show-sdk-path >/dev/null
+  scons platform=osx target=release_debug tools=yes arch="$arch" bits=64 debug_symbols=no lto=none -j"$JOBS"
+}
+
+build_macos_universal() {
+  build_macos_arch arm64
+  build_macos_arch x86_64
+  xcrun lipo -create \
+    bin/godot.osx.opt.tools.arm64 \
+    bin/godot.osx.opt.tools.x86_64 \
+    -output bin/godot.osx.opt.tools.universal
+  chmod +x bin/godot.osx.opt.tools.universal
+}
+
 case "$TARGET" in
-  all) build_windows_x64; build_windows_arm64; build_linux ;;
+  all)
+    if [[ $(uname -s) == Darwin ]]; then
+      build_macos_universal
+    else
+      build_windows_x64
+      build_windows_arm64
+      build_linux
+    fi
+    ;;
   windows-x64) build_windows_x64 ;;
   windows-arm64) build_windows_arm64 ;;
   linux|linux-x64) build_linux ;;
-  *) echo "Usage: $0 [all|windows-x64|windows-arm64|linux]" >&2; exit 2 ;;
+  macos)
+    case "$(uname -m)" in
+      arm64|aarch64) build_macos_arch arm64 ;;
+      x86_64) build_macos_arch x86_64 ;;
+      *) echo "Unsupported macOS architecture: $(uname -m)" >&2; exit 1 ;;
+    esac
+    ;;
+  macos-arm64) build_macos_arch arm64 ;;
+  macos-x64) build_macos_arch x86_64 ;;
+  macos-universal) build_macos_universal ;;
+  *) echo "Usage: $0 [all|windows-x64|windows-arm64|linux|macos|macos-x64|macos-arm64|macos-universal]" >&2; exit 2 ;;
 esac
