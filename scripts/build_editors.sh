@@ -23,6 +23,8 @@ export SCONS_CACHE_LIMIT="${SCONS_CACHE_LIMIT:-10240}"
 TARGET=${1:-all}
 ARM64_PREFIX=${MINGW_ARM64_PREFIX:-$ROOT/.toolchains/llvm-mingw/bin/aarch64-w64-mingw32-}
 X64_LLVM_PREFIX=${MINGW_X64_LLVM_PREFIX:-$ROOT/.toolchains/llvm-mingw/bin/x86_64-w64-mingw32-}
+MACOS_EDITOR_BUILD_DIR="$ROOT/bin/editor-builds/macos"
+MACOS_EDITOR_APP="$ROOT/bin/Godot Vita.app"
 
 build_windows_x64() {
   if [[ $(uname -m) == aarch64 || $(uname -m) == arm64 ]]; then
@@ -42,7 +44,7 @@ build_linux() {
   scons platform=x11 target=release_debug tools=yes bits=64 debug_symbols=no lto=none -j"$JOBS"
 }
 
-build_macos_arch() {
+build_macos_editor_binary() {
   local arch=$1
   [[ $(uname -s) == Darwin ]] || {
     echo "macOS builds require a macOS host and the Xcode command-line tools." >&2
@@ -50,16 +52,42 @@ build_macos_arch() {
   }
   xcrun --sdk macosx --show-sdk-path >/dev/null
   scons platform=osx target=release_debug tools=yes arch="$arch" bits=64 debug_symbols=no lto=none -j"$JOBS"
+  mkdir -p "$MACOS_EDITOR_BUILD_DIR"
+  mv -f "bin/godot.osx.opt.tools.$arch" "$MACOS_EDITOR_BUILD_DIR/"
+}
+
+package_macos_editor() {
+  local binary=$1
+  local temporary_app="$ROOT/bin/.Godot Vita.app.tmp.$$"
+  rm -rf "$temporary_app"
+  cp -R misc/dist/osx_tools.app "$temporary_app"
+  mkdir -p "$temporary_app/Contents/MacOS"
+  cp "$binary" "$temporary_app/Contents/MacOS/Godot"
+  chmod +x "$temporary_app/Contents/MacOS/Godot"
+  plutil -replace CFBundleName -string "Godot Vita" "$temporary_app/Contents/Info.plist"
+  plutil -insert CFBundleDisplayName -string "Godot Vita" "$temporary_app/Contents/Info.plist"
+  plutil -replace CFBundleIdentifier -string "org.godotengine.godot-vita" "$temporary_app/Contents/Info.plist"
+  plutil -lint "$temporary_app/Contents/Info.plist" >/dev/null
+  codesign --force --deep --sign - "$temporary_app"
+  rm -rf "$MACOS_EDITOR_APP"
+  mv "$temporary_app" "$MACOS_EDITOR_APP"
+}
+
+build_macos_arch() {
+  local arch=$1
+  build_macos_editor_binary "$arch"
+  package_macos_editor "$MACOS_EDITOR_BUILD_DIR/godot.osx.opt.tools.$arch"
 }
 
 build_macos_universal() {
-  build_macos_arch arm64
-  build_macos_arch x86_64
+  build_macos_editor_binary arm64
+  build_macos_editor_binary x86_64
   xcrun lipo -create \
-    bin/godot.osx.opt.tools.arm64 \
-    bin/godot.osx.opt.tools.x86_64 \
-    -output bin/godot.osx.opt.tools.universal
-  chmod +x bin/godot.osx.opt.tools.universal
+    "$MACOS_EDITOR_BUILD_DIR/godot.osx.opt.tools.arm64" \
+    "$MACOS_EDITOR_BUILD_DIR/godot.osx.opt.tools.x86_64" \
+    -output "$MACOS_EDITOR_BUILD_DIR/godot.osx.opt.tools.universal"
+  chmod +x "$MACOS_EDITOR_BUILD_DIR/godot.osx.opt.tools.universal"
+  package_macos_editor "$MACOS_EDITOR_BUILD_DIR/godot.osx.opt.tools.universal"
 }
 
 case "$TARGET" in

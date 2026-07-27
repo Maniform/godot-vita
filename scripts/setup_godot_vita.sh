@@ -274,5 +274,9 @@ fi
 
 echo
 echo "godot-vita setup completed."
-echo "Editors: $ROOT/bin"
+if [[ $HOST_OS == Darwin ]]; then
+  echo "Editor: $ROOT/bin/Godot Vita.app"
+else
+  echo "Editors: $ROOT/bin"
+fi
 echo "Templates: $ROOT/bin/export-templates/godot-vita_export_templates.tpz"

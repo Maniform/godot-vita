@@ -23,6 +23,7 @@ export SCONS_CACHE_LIMIT="${SCONS_CACHE_LIMIT:-10240}"
 TARGET=${1:-all}
 OUT=${TEMPLATE_OUTPUT_DIR:-$ROOT/bin/export-templates}
 STAGE="$OUT/staging"
+MACOS_BUILD_DIR="$OUT/binaries/macos"
 ARM64_PREFIX=${MINGW_ARM64_PREFIX:-$ROOT/.toolchains/llvm-mingw/bin/aarch64-w64-mingw32-}
 X64_LLVM_PREFIX=${MINGW_X64_LLVM_PREFIX:-$ROOT/.toolchains/llvm-mingw/bin/x86_64-w64-mingw32-}
 VITAGL=${VITAGL:-no}
@@ -98,6 +99,12 @@ build_macos_binary() {
   }
   xcrun --sdk macosx --show-sdk-path >/dev/null
   scons platform=osx target="$target" tools=no arch="$arch" bits=64 debug_symbols=no lto=none -j"$JOBS"
+  mkdir -p "$MACOS_BUILD_DIR"
+  if [[ $target == release ]]; then
+    mv -f "bin/godot.osx.opt.$arch" "$MACOS_BUILD_DIR/"
+  else
+    mv -f "bin/godot.osx.opt.debug.$arch" "$MACOS_BUILD_DIR/"
+  fi
 }
 
 package_macos() {
@@ -117,19 +124,25 @@ build_macos_arch() {
   local arch=$1
   build_macos_binary release "$arch"
   build_macos_binary release_debug "$arch"
-  package_macos "bin/godot.osx.opt.$arch" "bin/godot.osx.opt.debug.$arch"
+  package_macos \
+    "$MACOS_BUILD_DIR/godot.osx.opt.$arch" \
+    "$MACOS_BUILD_DIR/godot.osx.opt.debug.$arch"
 }
 
 build_macos_universal() {
-  local universal_dir="$OUT/macos-universal"
+  local universal_dir="$MACOS_BUILD_DIR/universal"
   mkdir -p "$universal_dir"
   build_macos_binary release arm64
   build_macos_binary release_debug arm64
   build_macos_binary release x86_64
   build_macos_binary release_debug x86_64
-  xcrun lipo -create bin/godot.osx.opt.arm64 bin/godot.osx.opt.x86_64 \
+  xcrun lipo -create \
+    "$MACOS_BUILD_DIR/godot.osx.opt.arm64" \
+    "$MACOS_BUILD_DIR/godot.osx.opt.x86_64" \
     -output "$universal_dir/godot_osx_release.64"
-  xcrun lipo -create bin/godot.osx.opt.debug.arm64 bin/godot.osx.opt.debug.x86_64 \
+  xcrun lipo -create \
+    "$MACOS_BUILD_DIR/godot.osx.opt.debug.arm64" \
+    "$MACOS_BUILD_DIR/godot.osx.opt.debug.x86_64" \
     -output "$universal_dir/godot_osx_debug.64"
   package_macos "$universal_dir/godot_osx_release.64" "$universal_dir/godot_osx_debug.64"
 }

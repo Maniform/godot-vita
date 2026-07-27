@@ -96,7 +96,7 @@ scripts/build_editors.sh [all|windows-x64|windows-arm64|linux|macos|macos-x64|ma
 
 - `all` is the default. On Ubuntu it builds Windows x86_64, Windows ARM64, and
   native Linux. On macOS it builds both macOS architectures and creates
-  `bin/godot.osx.opt.tools.universal`.
+  the universal application bundle `bin/Godot Vita.app`.
 - `windows-x64` builds the 64-bit x86 Windows editor. It uses Ubuntu's
   MinGW-w64 on an x86_64 host and LLVM-MinGW when cross-compiling from ARM64.
 - `windows-arm64` builds the native Windows ARM64 editor with LLVM-MinGW.
@@ -104,7 +104,9 @@ scripts/build_editors.sh [all|windows-x64|windows-arm64|linux|macos|macos-x64|ma
   as a compatibility alias, but the script still builds for the host CPU.
 - `macos` builds for the host CPU. `macos-x64` and `macos-arm64` select one
   architecture explicitly. `macos-universal` builds both and merges them with
-  `lipo`.
+  `lipo`. All macOS targets package the editor as `bin/Godot Vita.app`;
+  architecture-specific intermediate binaries are kept under
+  `bin/editor-builds/macos`.
 
 Every command in this script sets `tools=yes`. Non-editor binaries with
 `tools=no` are only produced by the separate export-template script.
@@ -158,8 +160,10 @@ VITAGL=yes scripts/build_export_templates.sh vita
 
 The final bundle is
 `bin/export-templates/godot-vita_export_templates.tpz` by default.
-Desktop template executables are moved from `bin/` to the staging directory
-after each build; only editor executables remain directly in `bin/`.
+Desktop template executables are moved out of `bin/` after each build. macOS
+intermediate binaries are kept in `bin/export-templates/binaries/macos`;
+packaged template archives remain in the staging directory. Only editor
+artifacts remain directly in `bin/`.
 
 ## `install_vita_pvr_sdk.sh`
 
