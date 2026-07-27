@@ -236,7 +236,9 @@ void ExportTemplateManager::_refresh_mirrors() {
 
 void ExportTemplateManager::_refresh_mirrors_completed(int p_status, int p_code, const PoolStringArray &headers, const PoolByteArray &p_data) {
 	if (p_status != HTTPRequest::RESULT_SUCCESS || p_code != 200) {
-		EditorNode::get_singleton()->show_warning(TTR("Error getting the list of mirrors."));
+		//~ Begin edit - Maniform 2026-07-27 : Removed export templates mirror warning
+		// EditorNode::get_singleton()->show_warning(TTR("Error getting the list of mirrors."));
+		//~ End edit - Maniform 2026-07-27 : Removed export templates mirror warning
 		is_refreshing_mirrors = false;
 		if (is_downloading_templates) {
 			_cancel_template_download();
