@@ -106,9 +106,29 @@ void OS_Vita::initialize_core() {
 #endif
 
 	_setup_clock();
+
+	int app_util_module_result = sceSysmoduleLoadModule(SCE_SYSMODULE_APPUTIL);
+	if (app_util_module_result >= 0 || app_util_module_result == SCE_SYSMODULE_LOADED) {
+		SceAppUtilInitParam init_param = {};
+		SceAppUtilBootParam boot_param = {};
+		int app_util_result = sceAppUtilInit(&init_param, &boot_param);
+		if (app_util_result >= 0) {
+			app_util_initialized = true;
+		} else {
+			ERR_PRINT("Could not initialize the Vita AppUtil library. Save data will use the fallback data directory.");
+		}
+	} else {
+		ERR_PRINT("Could not load the Vita AppUtil system module. Save data will use the fallback data directory.");
+	}
 }
 
 void OS_Vita::finalize_core() {
+	if (app_util_initialized) {
+		sceAppUtilShutdown();
+		app_util_initialized = false;
+	}
+	sceSysmoduleUnloadModule(SCE_SYSMODULE_APPUTIL);
+
 #ifndef NO_NETWORK
 	NetSocketPosix::cleanup();
 #endif
@@ -436,30 +456,52 @@ String OS_Vita::get_data_path() const {
 	return "ux0:/data";
 }
 
+String OS_Vita::get_title_id() const {
+	if (title_id != "") {
+		return title_id;
+	}
+
+	char title_id_buffer[10] = {};
+	int result = sceAppMgrAppParamGetString(sceKernelGetProcessId(), 12, title_id_buffer, sizeof(title_id_buffer));
+	if (result < 0) {
+		ERR_PRINT("Could not read the Vita TITLE_ID from the application parameters.");
+		return "";
+	}
+
+	String candidate = String::utf8(title_id_buffer).to_upper();
+	if (candidate.length() != 9) {
+		ERR_PRINT("The Vita TITLE_ID returned by the system is not 9 characters long.");
+		return "";
+	}
+	for (int i = 0; i < candidate.length(); i++) {
+		const CharType character = candidate[i];
+		if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9'))) {
+			ERR_PRINT("The Vita TITLE_ID returned by the system contains an invalid character.");
+			return "";
+		}
+	}
+
+	title_id = candidate;
+	return title_id;
+}
+
 String OS_Vita::get_user_data_dir() const {
-	String appname = get_safe_dir_name(ProjectSettings::get_singleton()->get("application/config/name"));
-	if (appname != "") {
+	if (app_util_initialized && get_title_id() != "") {
 		bool use_custom_dir = ProjectSettings::get_singleton()->get("application/config/use_custom_user_dir");
 		if (use_custom_dir) {
 			String custom_dir = get_safe_dir_name(ProjectSettings::get_singleton()->get("application/config/custom_user_dir_name"), true);
-			if (custom_dir == "") {
-				custom_dir = appname;
+			if (custom_dir != "") {
+				return String("savedata0:").plus_file(custom_dir);
 			}
-			DirAccess *dir_access = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-			dir_access->make_dir_recursive(get_data_path().plus_file(custom_dir));
-			memdelete(dir_access);
-			return get_data_path().plus_file(custom_dir);
-		} else {
-			DirAccess *dir_access = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-			dir_access->make_dir_recursive(get_data_path().plus_file(get_godot_dir_name()).plus_file("app_userdata").plus_file(appname));
-			memdelete(dir_access);
-			return get_data_path().plus_file(get_godot_dir_name()).plus_file("app_userdata").plus_file(appname);
 		}
+		return "savedata0:";
 	}
-	DirAccess *dir_access = DirAccess::create(DirAccess::ACCESS_FILESYSTEM);
-	dir_access->make_dir_recursive(get_data_path().plus_file(get_godot_dir_name()).plus_file("app_userdata").plus_file("__unknown"));
-	memdelete(dir_access);
-	return get_data_path().plus_file(get_godot_dir_name()).plus_file("app_userdata").plus_file("__unknown");
+
+	String fallback_id = get_title_id();
+	if (fallback_id == "") {
+		fallback_id = "__unknown";
+	}
+	return get_data_path().plus_file(get_godot_dir_name()).plus_file("app_userdata").plus_file(fallback_id);
 }
 
 String OS_Vita::get_model_name() const {

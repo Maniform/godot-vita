@@ -72,7 +72,7 @@ public:
 		r_options->push_back(ExportOption(PropertyInfo(Variant::BOOL, "texture_format/etc"), false));
 		r_options->push_back(ExportOption(PropertyInfo(Variant::BOOL, "texture_format/pvrtc"), false));
 		r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "param_sfo/title", PROPERTY_HINT_PLACEHOLDER_TEXT, title), title));
-		r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "param_sfo/title_id", PROPERTY_HINT_PLACEHOLDER_TEXT, "GDOT00001 (Make sure it's CAPITALIZED and 9 characters MAX"), "GDOT00001"));
+		r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "param_sfo/title_id", PROPERTY_HINT_PLACEHOLDER_TEXT, "GDOT00001 (exactly 9 ASCII letters or digits)"), "GDOT00001"));
 		r_options->push_back(ExportOption(PropertyInfo(Variant::INT, "param_sfo/parental_level", PROPERTY_HINT_MAX, "11"), 1));
 		r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "param_sfo/version", PROPERTY_HINT_PLACEHOLDER_TEXT, "Game Version XX.YY"), "01.00"));
 		r_options->push_back(ExportOption(PropertyInfo(Variant::STRING, "assets/bubble_icon_128x128", PROPERTY_HINT_GLOBAL_FILE, "*.png"), ""));
@@ -125,6 +125,18 @@ public:
 	}
 
 	virtual bool has_valid_project_configuration(const Ref<EditorExportPreset> &p_preset, String &r_error) const {
+		String title_id = String(p_preset->get("param_sfo/title_id")).to_upper();
+		if (title_id.length() != 9) {
+			r_error = TTR("The Vita Title ID must be exactly 9 characters long.");
+			return false;
+		}
+		for (int i = 0; i < title_id.length(); i++) {
+			const CharType character = title_id[i];
+			if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9'))) {
+				r_error = TTR("The Vita Title ID must contain only ASCII letters and digits.");
+				return false;
+			}
+		}
 		return true;
 	}
 
@@ -310,7 +322,13 @@ public:
 		//String template_path = EditorSettings::get_singleton()->get_templates_dir().plus_file(current_version);
 
 		err = save_pack(p_preset, game_data_dir.plus_file("game.pck"));
-		mksfoex(sfo, app_dir.plus_file("sce_sys"));
+		Error sfo_error = mksfoex(sfo, app_dir.plus_file("sce_sys"));
+		if (sfo_error != OK) {
+			add_message(EXPORT_MESSAGE_ERROR, TTR("Create PARAM.SFO"), TTR("Could not create PARAM.SFO from the Vita export settings."));
+			memdelete(sfo);
+			memdelete(da);
+			return sfo_error;
+		}
 		if (err == OK) {
 			if (icon != String() && FileAccess::exists(icon)) {
 				da->copy(icon, app_dir.plus_file("sce_sys/icon0.png"));

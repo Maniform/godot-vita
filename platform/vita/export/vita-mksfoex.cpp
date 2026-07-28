@@ -190,7 +190,7 @@ int add_dword(char *str) {
 	return 1;
 }
 
-int mksfoex(ParamSFOStruct *sfo, String outDir) {
+Error mksfoex(ParamSFOStruct *sfo, String outDir) {
 	FILE *fp;
 	unsigned int i;
 	char head[8192];
@@ -218,7 +218,7 @@ int mksfoex(ParamSFOStruct *sfo, String outDir) {
 		entry = find_free();
 		if (entry == NULL) {
 			fprintf(stderr, "Maximum options reached\n");
-			return 0;
+			return ERR_OUT_OF_MEMORY;
 		}
 		*entry = g_defaults[i];
 	}
@@ -226,9 +226,17 @@ int mksfoex(ParamSFOStruct *sfo, String outDir) {
 	if ((entry = find_name("TITLE_ID"))) {
 		if (sfo->title_id.length() != 9) {
 			fprintf(stderr, "TITLE_ID must be 9 characters long\n");
-			return 1;
+			return ERR_INVALID_PARAMETER;
 		}
-		strcpy(title_id, sfo->title_id.to_upper().utf8().get_data());
+		String normalized_title_id = sfo->title_id.to_upper();
+		for (int character_index = 0; character_index < normalized_title_id.length(); character_index++) {
+			const CharType character = normalized_title_id[character_index];
+			if (!((character >= 'A' && character <= 'Z') || (character >= '0' && character <= '9'))) {
+				fprintf(stderr, "TITLE_ID must contain only ASCII letters and digits\n");
+				return ERR_INVALID_PARAMETER;
+			}
+		}
+		strcpy(title_id, normalized_title_id.utf8().get_data());
 		entry->data = title_id;
 	}
 
@@ -321,7 +329,7 @@ int mksfoex(ParamSFOStruct *sfo, String outDir) {
 	fp = fopen(output.utf8().get_data(), "wb");
 	if (fp == NULL) {
 		fprintf(stderr, "Cannot open filename %s\n", output.utf8().get_data());
-		return 0;
+		return ERR_CANT_CREATE;
 	}
 
 	fwrite(head, 1, (char *)e - head, fp);
@@ -329,5 +337,5 @@ int mksfoex(ParamSFOStruct *sfo, String outDir) {
 	fwrite(data, 1, d - data, fp);
 	fclose(fp);
 
-	return 0;
+	return OK;
 }

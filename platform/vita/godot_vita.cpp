@@ -56,21 +56,20 @@ unsigned int sceLibcHeapSize = MEMORY_SCELIBC_MB * 1024 * 1024;
 int main(int argc, char *argv[]) {
 	OS_Vita os;
 #ifndef VITAGL
-	char title_id[0xA];
 	char app_dir_path[0x100];
 	char app_kernel_module_path[0x100];
-	SceUID pid = -1;
 	sceKernelLoadStartModule("vs0:sys/external/libfios2.suprx", 0, NULL, 0, NULL, NULL);
 	sceKernelLoadStartModule("vs0:sys/external/libc.suprx", 0, NULL, 0, NULL, NULL);
 
-	pid = sceKernelGetProcessId();
-	sceAppMgrAppParamGetString(pid, 12, title_id, sizeof(title_id));
-	snprintf(app_dir_path, sizeof(app_dir_path), "ux0:app/%s", title_id);
-	snprintf(app_kernel_module_path, sizeof(app_kernel_module_path), "%s/module/libgpu_es4_kernel_ext.skprx", app_dir_path);
+	CharString title_id = os.get_title_id().utf8();
+	if (title_id.length() == 9) {
+		snprintf(app_dir_path, sizeof(app_dir_path), "ux0:app/%s", title_id.get_data());
+		snprintf(app_kernel_module_path, sizeof(app_kernel_module_path), "%s/module/libgpu_es4_kernel_ext.skprx", app_dir_path);
 
-	SceUID res = taiLoadStartKernelModule(app_kernel_module_path, 0, NULL, 0);
-	if (res < 0) {
-		sceClibPrintf("Failed to load kernel module: %08x\n", res);
+		SceUID res = taiLoadStartKernelModule(app_kernel_module_path, 0, NULL, 0);
+		if (res < 0) {
+			sceClibPrintf("Failed to load kernel module: %08x\n", res);
+		}
 	}
 #else
 	sceSysmoduleLoadModule(SCE_SYSMODULE_RAZOR_CAPTURE);

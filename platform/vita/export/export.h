@@ -46,7 +46,7 @@ typedef struct ParamSFOStruct {
 	int parental_level;
 } ParamSFOStruct;
 
-int mksfoex(ParamSFOStruct *sfo, String outDir);
+Error mksfoex(ParamSFOStruct *sfo, String outDir);
 void register_vita_exporter();
 
 #endif // VITA_EXPORT_H

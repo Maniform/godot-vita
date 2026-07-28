@@ -43,6 +43,7 @@
 #include "vita_orientation_tracker.h"
 
 #include <psp2/appmgr.h>
+#include <psp2/apputil.h>
 #include <psp2/kernel/clib.h>
 #include <psp2/kernel/modulemgr.h>
 #include <psp2/kernel/processmgr.h>
@@ -54,6 +55,8 @@
 
 class OS_Vita : public OS {
 	bool secondary_gl_available = false;
+	bool app_util_initialized = false;
+	mutable String title_id;
 
 	ContextEGL_Vita *gl_context;
 	AudioDriverVita driver_vita;
@@ -145,6 +148,7 @@ public:
 	//virtual String get_executable_path() const;
 	virtual String get_user_data_dir() const;
 	virtual String get_data_path() const;
+	String get_title_id() const;
 	//virtual String get_cache_path() const;
 	//virtual String get_resource_dir() const;
 	virtual String get_model_name() const;
