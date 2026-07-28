@@ -106,6 +106,8 @@ public:
 
 	RID feed_texture(int p_id, FeedImage p_texture);
 
+	virtual void update();
+
 	CameraServer();
 	~CameraServer();
 };

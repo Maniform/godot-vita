@@ -158,6 +158,9 @@ RID CameraServer::feed_texture(int p_id, CameraServer::FeedImage p_texture) {
 	return feed->get_texture(p_texture);
 };
 
+void CameraServer::update() {
+}
+
 CameraServer::CameraServer() {
 	singleton = this;
 };

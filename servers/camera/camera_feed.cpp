@@ -179,13 +179,15 @@ void CameraFeed::set_RGB_img(const Ref<Image> &p_rgb_img) {
 
 		int new_width = p_rgb_img->get_width();
 		int new_height = p_rgb_img->get_height();
+		Image::Format new_format = p_rgb_img->get_format();
+		ERR_FAIL_COND(new_format != Image::FORMAT_RGB8 && new_format != Image::FORMAT_RGBA8);
 
 		if ((base_width != new_width) || (base_height != new_height)) {
 			// We're assuming here that our camera image doesn't change around formats etc, allocate the whole lot...
 			base_width = new_width;
 			base_height = new_height;
 
-			vs->texture_allocate(texture[CameraServer::FEED_RGBA_IMAGE], new_width, new_height, 0, Image::FORMAT_RGB8, VS::TEXTURE_TYPE_2D, VS::TEXTURE_FLAGS_DEFAULT);
+			vs->texture_allocate(texture[CameraServer::FEED_RGBA_IMAGE], new_width, new_height, 0, new_format, VS::TEXTURE_TYPE_2D, VS::TEXTURE_FLAGS_DEFAULT);
 		}
 
 		vs->texture_set_data(texture[CameraServer::FEED_RGBA_IMAGE], p_rgb_img);

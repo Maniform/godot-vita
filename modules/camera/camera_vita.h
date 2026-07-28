@@ -1,9 +1,9 @@
 /**************************************************************************/
-/*  register_types.cpp                                                    */
+/*  camera_vita.h                                                         */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
-/*                        https://godotengine.org                         */
+/*                      https://godotengine.org                           */
 /**************************************************************************/
 /* Copyright (c) 2014-present Godot Engine contributors (see AUTHORS.md). */
 /* Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.                  */
@@ -28,29 +28,72 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#include "register_types.h"
+#ifndef CAMERA_VITA_H
+#define CAMERA_VITA_H
 
-#if defined(WINDOWS_ENABLED)
-#include "camera_win.h"
-#endif
-#if defined(OSX_ENABLED)
-#include "camera_osx.h"
-#endif
-#if defined(VITA_ENABLED)
-#include "camera_vita.h"
-#endif
+#include "core/os/mutex.h"
+#include "core/os/thread.h"
+#include "core/safe_refcount.h"
+#include "core/vector.h"
+#include "servers/camera/camera_feed.h"
+#include "servers/camera_server.h"
 
-void register_camera_types() {
-#if defined(WINDOWS_ENABLED)
-	CameraServer::make_default<CameraWindows>();
-#endif
-#if defined(OSX_ENABLED)
-	CameraServer::make_default<CameraOSX>();
-#endif
-#if defined(VITA_ENABLED)
-	CameraServer::make_default<CameraVita>();
-#endif
-}
+#include <psp2/camera.h>
+#include <psp2/kernel/sysmem.h>
 
-void unregister_camera_types() {
-}
+class CameraVita;
+
+class CameraFeedVita : public CameraFeed {
+	GDSOFTCLASS(CameraFeedVita, CameraFeed);
+
+	friend class CameraVita;
+
+	CameraVita *camera_server;
+	int device;
+	int width;
+	int height;
+	int resolution;
+	int framerate;
+	int frame_size;
+
+	SceUID camera_memblock;
+	void *camera_buffer;
+
+	Thread capture_thread;
+	SafeFlag exit_thread;
+	SafeNumeric<int> capture_error;
+	Mutex frame_mutex;
+	Vector<uint8_t> pending_frame;
+	bool frame_pending;
+
+	static void _capture_thread(void *p_userdata);
+	void _capture_loop();
+	bool _open_camera();
+	void _close_camera();
+	void _update();
+
+public:
+	virtual bool activate_feed();
+	virtual void deactivate_feed();
+
+	CameraFeedVita(CameraVita *p_camera_server, int p_device);
+	virtual ~CameraFeedVita();
+};
+
+class CameraVita : public CameraServer {
+	GDSOFTCLASS(CameraVita, CameraServer);
+
+	friend class CameraFeedVita;
+
+	Ref<CameraFeedVita> vita_feeds[2];
+
+	bool _request_activation(CameraFeedVita *p_feed);
+
+public:
+	virtual void update();
+
+	CameraVita();
+	virtual ~CameraVita();
+};
+
+#endif // CAMERA_VITA_H
