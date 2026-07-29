@@ -10,6 +10,33 @@
 	<tutorials>
 	</tutorials>
 	<methods>
+		<method name="capture_image" qualifiers="const">
+			<return type="Image" />
+			<description>
+				Returns an independent RGBA snapshot of the latest completed frame. The feed must be active and have published at least one frame. Returns an empty reference when CPU capture is unavailable.
+			</description>
+		</method>
+		<method name="get_formats" qualifiers="const">
+			<return type="Array" />
+			<description>
+				Returns the capture formats supported by this feed. Each entry is a dictionary containing [code]size[/code] and [code]fps[/code]. An empty array means format selection is unavailable.
+			</description>
+		</method>
+		<method name="get_latest_frame" qualifiers="const">
+			<return type="CameraFrame" />
+			<argument index="0" name="format" type="int" enum="CameraFeed.FrameFormat" default="0" />
+			<description>
+				Returns an independent snapshot of the latest completed frame, including its metadata. Returns an empty reference when no frame is available or the requested format is unsupported.
+			</description>
+		</method>
+		<method name="set_capture_format">
+			<return type="int" enum="Error" />
+			<argument index="0" name="size" type="Vector2" />
+			<argument index="1" name="fps" type="int" />
+			<description>
+				Selects a capture format returned by [method get_formats]. The feed must be inactive.
+			</description>
+		</method>
 		<method name="get_id" qualifiers="const">
 			<return type="int" />
 			<description>
@@ -58,6 +85,12 @@
 		</constant>
 		<constant name="FEED_BACK" value="2" enum="FeedPosition">
 			Camera is mounted at the back of the device.
+		</constant>
+		<constant name="FRAME_RGBA" value="0" enum="FrameFormat">
+			A color frame in [constant Image.FORMAT_RGBA8] format.
+		</constant>
+		<constant name="FRAME_LUMINANCE" value="1" enum="FrameFormat">
+			A luminance frame in [constant Image.FORMAT_L8] format. A backend may not support this format.
 		</constant>
 	</constants>
 </class>

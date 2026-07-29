@@ -29,6 +29,7 @@
 /**************************************************************************/
 
 #include "camera_feed.h"
+#include "camera_frame.h"
 #include "servers/visual_server.h"
 
 void CameraFeed::_bind_methods() {
@@ -54,6 +55,11 @@ void CameraFeed::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("_set_YCbCr_imgs", "y_img", "cbcr_img"), &CameraFeed::set_YCbCr_imgs);
 	ClassDB::bind_method(D_METHOD("_allocate_texture", "width", "height", "format", "texture_type", "data_type"), &CameraFeed::allocate_texture);
 
+	ClassDB::bind_method(D_METHOD("get_formats"), &CameraFeed::get_formats);
+	ClassDB::bind_method(D_METHOD("set_capture_format", "size", "fps"), &CameraFeed::set_capture_format);
+	ClassDB::bind_method(D_METHOD("get_latest_frame", "format"), &CameraFeed::get_latest_frame, DEFVAL(FRAME_RGBA));
+	ClassDB::bind_method(D_METHOD("capture_image"), &CameraFeed::capture_image);
+
 	ADD_GROUP("Feed", "feed_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "feed_is_active"), "set_active", "is_active");
 	ADD_PROPERTY(PropertyInfo(Variant::TRANSFORM2D, "feed_transform"), "set_transform", "get_transform");
@@ -66,6 +72,9 @@ void CameraFeed::_bind_methods() {
 	BIND_ENUM_CONSTANT(FEED_UNSPECIFIED);
 	BIND_ENUM_CONSTANT(FEED_FRONT);
 	BIND_ENUM_CONSTANT(FEED_BACK);
+
+	BIND_ENUM_CONSTANT(FRAME_RGBA);
+	BIND_ENUM_CONSTANT(FRAME_LUMINANCE);
 }
 
 int CameraFeed::get_id() const {
@@ -260,6 +269,26 @@ void CameraFeed::allocate_texture(int p_width, int p_height, Image::Format p_for
 	}
 
 	datatype = p_data_type;
+}
+
+Array CameraFeed::get_formats() const {
+	return Array();
+}
+
+Error CameraFeed::set_capture_format(const Size2 &p_size, int p_fps) {
+	return ERR_UNAVAILABLE;
+}
+
+Ref<CameraFrame> CameraFeed::get_latest_frame(FrameFormat p_format) const {
+	return Ref<CameraFrame>();
+}
+
+Ref<Image> CameraFeed::capture_image() const {
+	Ref<CameraFrame> frame = get_latest_frame(FRAME_RGBA);
+	if (frame.is_null() || frame->get_image().is_null()) {
+		return Ref<Image>();
+	}
+	return frame->get_image()->duplicate();
 }
 
 bool CameraFeed::activate_feed() {

@@ -1,0 +1,17 @@
+; Engine configuration file.
+; Vita camera still-capture demonstration.
+
+config_version=4
+
+[application]
+config/name="Vita Camera Capture"
+run/main_scene="res://Main.tscn"
+
+[display/window]
+size/width=960
+size/height=544
+stretch/mode="2d"
+stretch/aspect="keep"
+
+[rendering]
+quality/driver/driver_name="GLES2"

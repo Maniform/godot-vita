@@ -1,5 +1,5 @@
 /**************************************************************************/
-/*  camera_vita.h                                                         */
+/*  camera_frame.h                                                        */
 /**************************************************************************/
 /*                         This file is part of:                          */
 /*                             GODOT ENGINE                               */
@@ -28,80 +28,37 @@
 /* SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.                 */
 /**************************************************************************/
 
-#ifndef CAMERA_VITA_H
-#define CAMERA_VITA_H
+#ifndef CAMERA_FRAME_H
+#define CAMERA_FRAME_H
 
-#include "core/os/mutex.h"
-#include "core/os/thread.h"
-#include "core/safe_refcount.h"
-#include "core/vector.h"
+#include "core/image.h"
+#include "core/math/quat.h"
+#include "core/reference.h"
 #include "servers/camera/camera_feed.h"
-#include "servers/camera/camera_frame.h"
-#include "servers/camera_server.h"
 
-#include <psp2/camera.h>
-#include <psp2/kernel/sysmem.h>
+class CameraFrame : public Reference {
+	GDCLASS(CameraFrame, Reference);
 
-class CameraVita;
+	Ref<Image> image;
+	uint64_t frame_id;
+	uint64_t timestamp_usec;
+	Quat device_orientation;
+	CameraFeed::FeedPosition camera_position;
+	bool orientation_available;
 
-class CameraFeedVita : public CameraFeed {
-	GDSOFTCLASS(CameraFeedVita, CameraFeed);
-
-	friend class CameraVita;
-
-	CameraVita *camera_server;
-	int device;
-	int width;
-	int height;
-	int resolution;
-	int framerate;
-	int frame_size;
-
-	SceUID camera_memblock;
-	void *camera_buffer;
-
-	Thread capture_thread;
-	SafeFlag exit_thread;
-	SafeNumeric<int> capture_error;
-	Mutex frame_mutex;
-	Vector<uint8_t> pending_frame;
-	bool frame_pending;
-	uint64_t pending_frame_id;
-	uint64_t pending_timestamp_usec;
-	Ref<CameraFrame> latest_frame;
-
-	static void _capture_thread(void *p_userdata);
-	void _capture_loop();
-	bool _open_camera();
-	void _close_camera();
-	void _update();
+protected:
+	static void _bind_methods();
 
 public:
-	virtual Array get_formats() const;
-	virtual Error set_capture_format(const Size2 &p_size, int p_fps);
-	virtual Ref<CameraFrame> get_latest_frame(FrameFormat p_format = FRAME_RGBA) const;
+	Ref<Image> get_image() const;
+	uint64_t get_frame_id() const;
+	uint64_t get_timestamp_usec() const;
+	Quat get_device_orientation() const;
+	CameraFeed::FeedPosition get_camera_position() const;
+	bool is_orientation_available() const;
 
-	virtual bool activate_feed();
-	virtual void deactivate_feed();
-
-	CameraFeedVita(CameraVita *p_camera_server, int p_device);
-	virtual ~CameraFeedVita();
+	CameraFrame();
+	CameraFrame(const Ref<Image> &p_image, uint64_t p_frame_id, uint64_t p_timestamp_usec, const Quat &p_device_orientation, CameraFeed::FeedPosition p_camera_position, bool p_orientation_available);
 };
 
-class CameraVita : public CameraServer {
-	GDSOFTCLASS(CameraVita, CameraServer);
-
-	friend class CameraFeedVita;
-
-	Ref<CameraFeedVita> vita_feeds[2];
-
-	bool _request_activation(CameraFeedVita *p_feed);
-
-public:
-	virtual void update();
-
-	CameraVita();
-	virtual ~CameraVita();
-};
-
-#endif // CAMERA_VITA_H
+#endif // CAMERA_FRAME_H

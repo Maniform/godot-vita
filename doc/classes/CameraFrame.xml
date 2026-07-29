@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="CameraFrame" inherits="Reference" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../class.xsd">
+	<brief_description>
+		An immutable camera frame snapshot with capture metadata.
+	</brief_description>
+	<description>
+		Contains an image copied from a completed camera frame and the metadata associated with that capture. Compare [member frame_id] when polling [method CameraFeed.get_latest_frame] to avoid processing the same frame more than once.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+	</methods>
+	<members>
+		<member name="camera_position" type="int" setter="" getter="get_camera_position" enum="CameraFeed.FeedPosition" default="0">
+			The physical position of the camera that produced the frame.
+		</member>
+		<member name="device_orientation" type="Quat" setter="" getter="get_device_orientation" default="Quat( 0, 0, 0, 1 )">
+			Device orientation at capture time. Only valid when [member orientation_available] is [code]true[/code].
+		</member>
+		<member name="frame_id" type="int" setter="" getter="get_frame_id" default="0">
+			Monotonically increasing identifier supplied by the camera backend.
+		</member>
+		<member name="image" type="Image" setter="" getter="get_image">
+			Image data owned by this snapshot.
+		</member>
+		<member name="orientation_available" type="bool" setter="" getter="is_orientation_available" default="false">
+			Whether [member device_orientation] contains synchronized motion data.
+		</member>
+		<member name="timestamp_usec" type="int" setter="" getter="get_timestamp_usec" default="0">
+			Camera capture timestamp in microseconds.
+		</member>
+	</members>
+	<constants>
+	</constants>
+</class>

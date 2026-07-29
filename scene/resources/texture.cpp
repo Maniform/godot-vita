@@ -2837,8 +2837,16 @@ uint32_t CameraTexture::get_flags() const {
 }
 
 Ref<Image> CameraTexture::get_data() const {
-	// not (yet) supported
-	return Ref<Image>();
+	CameraServer *camera_server = CameraServer::get_singleton();
+	if (camera_server == nullptr) {
+		return Ref<Image>();
+	}
+
+	Ref<CameraFeed> feed = camera_server->get_feed_by_id(camera_feed_id);
+	if (feed.is_null()) {
+		return Ref<Image>();
+	}
+	return feed->capture_image();
 }
 
 void CameraTexture::set_camera_feed_id(int p_new_id) {

@@ -56,6 +56,7 @@
 #include "audio/effects/audio_stream_generator.h"
 #include "audio_server.h"
 #include "camera/camera_feed.h"
+#include "camera/camera_frame.h"
 #include "camera_server.h"
 #include "navigation_2d_server.h"
 #include "navigation_server.h"
@@ -176,6 +177,7 @@ void register_server_types() {
 	}
 
 	ClassDB::register_class<CameraFeed>();
+	ClassDB::register_class<CameraFrame>();
 
 	ClassDB::register_virtual_class<Physics2DDirectBodyState>();
 	ClassDB::register_virtual_class<Physics2DDirectSpaceState>();

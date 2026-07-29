@@ -4,7 +4,7 @@
 		Texture provided by a [CameraFeed].
 	</brief_description>
 	<description>
-		This texture gives access to the camera texture provided by a [CameraFeed].
+		This texture gives access to the camera texture provided by a [CameraFeed]. [method Texture.get_data] returns an independent RGBA snapshot when CPU capture is supported by the selected feed.
 		[b]Note:[/b] Many cameras supply YCbCr images which need to be converted in a shader.
 	</description>
 	<tutorials>

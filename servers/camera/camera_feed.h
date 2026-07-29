@@ -43,6 +43,8 @@
 	camera feeds that can be used as the background for our environment.
 **/
 
+class CameraFrame;
+
 class CameraFeed : public Reference {
 	GDCLASS(CameraFeed, Reference);
 
@@ -58,6 +60,11 @@ public:
 		FEED_UNSPECIFIED, // we have no idea
 		FEED_FRONT, // this is a camera on the front of the device
 		FEED_BACK // this is a camera on the back of the device
+	};
+
+	enum FrameFormat {
+		FRAME_RGBA,
+		FRAME_LUMINANCE,
 	};
 
 private:
@@ -105,11 +112,17 @@ public:
 	void set_YCbCr_imgs(const Ref<Image> &p_y_img, const Ref<Image> &p_cbcr_img);
 	void allocate_texture(int p_width, int p_height, Image::Format p_format, VisualServer::TextureType p_texture_type, FeedDataType p_data_type);
 
+	virtual Array get_formats() const;
+	virtual Error set_capture_format(const Size2 &p_size, int p_fps);
+	virtual Ref<CameraFrame> get_latest_frame(FrameFormat p_format = FRAME_RGBA) const;
+	virtual Ref<Image> capture_image() const;
+
 	virtual bool activate_feed();
 	virtual void deactivate_feed();
 };
 
 VARIANT_ENUM_CAST(CameraFeed::FeedDataType);
 VARIANT_ENUM_CAST(CameraFeed::FeedPosition);
+VARIANT_ENUM_CAST(CameraFeed::FrameFormat);
 
 #endif // CAMERA_FEED_H

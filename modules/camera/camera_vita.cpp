@@ -31,6 +31,7 @@
 #include "camera_vita.h"
 
 #include "core/image.h"
+#include "servers/camera/camera_frame.h"
 #include "core/print_string.h"
 
 #include <string.h>
@@ -55,7 +56,9 @@ CameraFeedVita::CameraFeedVita(CameraVita *p_camera_server, int p_device) :
 		camera_buffer(nullptr),
 		exit_thread(false),
 		capture_error(0),
-		frame_pending(false) {
+		frame_pending(false),
+		pending_frame_id(0),
+		pending_timestamp_usec(0) {
 	pending_frame.resize(frame_size);
 
 	if (device == SCE_CAMERA_DEVICE_FRONT) {
@@ -150,9 +153,68 @@ void CameraFeedVita::_capture_loop() {
 		{
 			MutexLock lock(frame_mutex);
 			memcpy(pending_frame.ptrw(), source, frame_size);
+			pending_frame_id = camera_read.frame;
+			pending_timestamp_usec = camera_read.timestamp;
 			frame_pending = true;
 		}
 	}
+}
+
+Array CameraFeedVita::get_formats() const {
+	static const int widths[] = { 640, 640, 320, 160 };
+	static const int heights[] = { 480, 360, 240, 120 };
+
+	Array formats;
+	for (int i = 0; i < 4; i++) {
+		Dictionary format;
+		format["size"] = Size2(widths[i], heights[i]);
+		format["fps"] = 30;
+		formats.push_back(format);
+	}
+	return formats;
+}
+
+Error CameraFeedVita::set_capture_format(const Size2 &p_size, int p_fps) {
+	if (is_active() || capture_thread.is_started()) {
+		ERR_PRINT("Vita camera format cannot be changed while the feed is active.");
+		return ERR_BUSY;
+	}
+	if (p_fps != 30 || p_size.x != (int)p_size.x || p_size.y != (int)p_size.y) {
+		return ERR_INVALID_PARAMETER;
+	}
+
+	const int requested_width = (int)p_size.x;
+	const int requested_height = (int)p_size.y;
+	int requested_resolution = SCE_CAMERA_RESOLUTION_0_0;
+	if (requested_width == 640 && requested_height == 480) {
+		requested_resolution = SCE_CAMERA_RESOLUTION_640_480;
+	} else if (requested_width == 640 && requested_height == 360) {
+		requested_resolution = SCE_CAMERA_RESOLUTION_640_360;
+	} else if (requested_width == 320 && requested_height == 240) {
+		requested_resolution = SCE_CAMERA_RESOLUTION_320_240;
+	} else if (requested_width == 160 && requested_height == 120) {
+		requested_resolution = SCE_CAMERA_RESOLUTION_160_120;
+	} else {
+		return ERR_INVALID_PARAMETER;
+	}
+
+	width = requested_width;
+	height = requested_height;
+	resolution = requested_resolution;
+	framerate = SCE_CAMERA_FRAMERATE_30_FPS;
+	frame_size = width * height * 4;
+	pending_frame.resize(frame_size);
+	latest_frame.unref();
+	return OK;
+}
+
+Ref<CameraFrame> CameraFeedVita::get_latest_frame(FrameFormat p_format) const {
+	if (p_format != FRAME_RGBA || !is_active() || latest_frame.is_null() || latest_frame->get_image().is_null()) {
+		return Ref<CameraFrame>();
+	}
+
+	Ref<Image> image = latest_frame->get_image()->duplicate();
+	return Ref<CameraFrame>(memnew(CameraFrame(image, latest_frame->get_frame_id(), latest_frame->get_timestamp_usec(), latest_frame->get_device_orientation(), latest_frame->get_camera_position(), latest_frame->is_orientation_available())));
 }
 
 bool CameraFeedVita::activate_feed() {
@@ -206,6 +268,7 @@ void CameraFeedVita::deactivate_feed() {
 
 	_close_camera();
 	capture_error.set(0);
+	latest_frame.unref();
 	{
 		MutexLock lock(frame_mutex);
 		frame_pending = false;
@@ -221,6 +284,8 @@ void CameraFeedVita::_update() {
 	}
 
 	PoolVector<uint8_t> image_data;
+	uint64_t frame_id = 0;
+	uint64_t timestamp_usec = 0;
 	{
 		MutexLock lock(frame_mutex);
 		if (!frame_pending) {
@@ -233,12 +298,15 @@ void CameraFeedVita::_update() {
 		// little-endian Vita its memory byte order is R, G, B, A, matching
 		// Image::FORMAT_RGBA8.
 		memcpy(write.ptr(), pending_frame.ptr(), frame_size);
+		frame_id = pending_frame_id;
+		timestamp_usec = pending_timestamp_usec;
 		frame_pending = false;
 	}
 
 	Ref<Image> image;
 	image.instance();
 	image->create(width, height, false, Image::FORMAT_RGBA8, image_data);
+	latest_frame = Ref<CameraFrame>(memnew(CameraFrame(image, frame_id, timestamp_usec, Quat(), get_position(), false)));
 	set_RGB_img(image);
 }
 
