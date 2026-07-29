@@ -189,6 +189,11 @@ install_host_dependencies() {
 
   if [[ $HOST_ARCH == aarch64 ]]; then
     "${SUDO[@]}" apt-get install -y qemu-user-binfmt libc6:amd64 libzstd1:amd64
+  elif [[ $WITH_CROSS_ARCH == yes ]]; then
+    # Install emulation before foreign development packages. In particular,
+    # libglib2.0-dev:<foreign> otherwise satisfies its `python3 | qemu-user`
+    # dependency with foreign Python and can replace the host interpreter.
+    "${SUDO[@]}" apt-get install -y qemu-user-binfmt
   fi
 
   if [[ $WITH_CROSS_ARCH == yes ]]; then
