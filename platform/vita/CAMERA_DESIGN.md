@@ -292,10 +292,14 @@ the engine's separated-YCbCr shader; canvas previews combine two
 
 The native mailbox retains 1.5 bytes per pixel instead of four. Packing the
 preview chroma texture costs 0.75 bytes per source pixel, while RGBA allocation
-and conversion are deferred until `capture_image()` or
-`get_latest_frame(FRAME_RGBA)` is called. Diagnostics expose native and CDRAM
-buffer sizes, YUV publication time, and RGBA conversion count/time for hardware
-comparison on VitaGL and PVR.
+and conversion are deferred until `capture_image()`,
+`get_latest_frame(FRAME_RGBA)`, or an automatic color `CameraTexture` stream
+is requested. `CameraTexture.set_color_stream_enabled(true)` selects a third,
+directly displayable texture slot and reference-counts consumers; the Vita
+backend stops per-frame conversion when the final consumer releases it.
+Diagnostics expose native and CDRAM buffer sizes, color-stream consumers, YUV
+publication time, and RGBA conversion count/time for hardware comparison on
+VitaGL and PVR.
 
 ## Still-image Capture
 

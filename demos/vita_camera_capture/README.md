@@ -5,6 +5,24 @@ unique 320x240 luminance frames at up to 15 FPS, detects the supplied fiducial
 marker, estimates its planar pose, and projects a cube using the calibrated
 camera intrinsics.
 
+## Minimal color preview
+
+A color preview does not require a YUV shader when the automatic stream is
+enabled:
+
+```gdscript
+var texture := CameraTexture.new()
+texture.camera_feed_id = feed.get_id()
+var error := texture.set_color_stream_enabled(true)
+if error == OK:
+    $Preview.texture = texture
+    texture.camera_is_active = true
+```
+
+The Vita backend converts and uploads RGBA only while at least one
+`CameraTexture` requests this stream. The two-texture YUV shader used by this
+AR demo remains the lower-bandwidth option.
+
 ## Camera calibration
 
 The engine intentionally ships with invalid zero focal lengths: camera

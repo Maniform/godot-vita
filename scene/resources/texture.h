@@ -843,6 +843,7 @@ class CameraTexture : public Texture {
 private:
 	int camera_feed_id;
 	CameraServer::FeedImage which_feed;
+	bool color_stream_enabled;
 
 protected:
 	static void _bind_methods();
@@ -863,6 +864,9 @@ public:
 
 	void set_which_feed(CameraServer::FeedImage p_which);
 	CameraServer::FeedImage get_which_feed() const;
+
+	Error set_color_stream_enabled(bool p_enabled);
+	bool is_color_stream_enabled() const;
 
 	void set_camera_active(bool p_active);
 	bool get_camera_active() const;

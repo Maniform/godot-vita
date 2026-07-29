@@ -2787,6 +2787,8 @@ void CameraTexture::_bind_methods() {
 
 	ClassDB::bind_method(D_METHOD("set_which_feed", "which_feed"), &CameraTexture::set_which_feed);
 	ClassDB::bind_method(D_METHOD("get_which_feed"), &CameraTexture::get_which_feed);
+	ClassDB::bind_method(D_METHOD("set_color_stream_enabled", "enabled"), &CameraTexture::set_color_stream_enabled);
+	ClassDB::bind_method(D_METHOD("is_color_stream_enabled"), &CameraTexture::is_color_stream_enabled);
 
 	ClassDB::bind_method(D_METHOD("set_camera_active", "active"), &CameraTexture::set_camera_active);
 	ClassDB::bind_method(D_METHOD("get_camera_active"), &CameraTexture::get_camera_active);
@@ -2850,7 +2852,22 @@ Ref<Image> CameraTexture::get_data() const {
 }
 
 void CameraTexture::set_camera_feed_id(int p_new_id) {
+	CameraServer *camera_server = CameraServer::get_singleton();
+	if (color_stream_enabled && camera_server != nullptr) {
+		Ref<CameraFeed> old_feed = camera_server->get_feed_by_id(camera_feed_id);
+		if (old_feed.is_valid()) {
+			old_feed->request_color_stream(false);
+		}
+	}
+
 	camera_feed_id = p_new_id;
+	if (color_stream_enabled && camera_server != nullptr) {
+		Ref<CameraFeed> new_feed = camera_server->get_feed_by_id(camera_feed_id);
+		if (new_feed.is_null() || new_feed->request_color_stream(true) != OK) {
+			color_stream_enabled = false;
+			which_feed = CameraServer::FEED_RGBA_IMAGE;
+		}
+	}
 	_change_notify();
 }
 
@@ -2859,12 +2876,39 @@ int CameraTexture::get_camera_feed_id() const {
 }
 
 void CameraTexture::set_which_feed(CameraServer::FeedImage p_which) {
+	if (color_stream_enabled) {
+		set_color_stream_enabled(false);
+	}
 	which_feed = p_which;
 	_change_notify();
 }
 
 CameraServer::FeedImage CameraTexture::get_which_feed() const {
 	return which_feed;
+}
+
+Error CameraTexture::set_color_stream_enabled(bool p_enabled) {
+	if (p_enabled == color_stream_enabled) {
+		return OK;
+	}
+
+	CameraServer *camera_server = CameraServer::get_singleton();
+	ERR_FAIL_COND_V(camera_server == nullptr, ERR_UNAVAILABLE);
+	Ref<CameraFeed> feed = camera_server->get_feed_by_id(camera_feed_id);
+	ERR_FAIL_COND_V(feed.is_null(), ERR_DOES_NOT_EXIST);
+
+	const Error error = feed->request_color_stream(p_enabled);
+	if (error != OK) {
+		return error;
+	}
+	color_stream_enabled = p_enabled;
+	which_feed = p_enabled ? CameraServer::FEED_COLOR_IMAGE : CameraServer::FEED_RGBA_IMAGE;
+	_change_notify();
+	return OK;
+}
+
+bool CameraTexture::is_color_stream_enabled() const {
+	return color_stream_enabled;
 }
 
 void CameraTexture::set_camera_active(bool p_active) {
@@ -2887,10 +2931,16 @@ bool CameraTexture::get_camera_active() const {
 CameraTexture::CameraTexture() {
 	camera_feed_id = 0;
 	which_feed = CameraServer::FEED_RGBA_IMAGE;
+	color_stream_enabled = false;
 }
 
 CameraTexture::~CameraTexture() {
-	// nothing to do here yet
+	if (color_stream_enabled && CameraServer::get_singleton() != nullptr) {
+		Ref<CameraFeed> feed = CameraServer::get_singleton()->get_feed_by_id(camera_feed_id);
+		if (feed.is_valid()) {
+			feed->request_color_stream(false);
+		}
+	}
 }
 
 void ExternalTexture::_bind_methods() {

@@ -374,9 +374,14 @@ Dictionary CameraFeedVita::get_diagnostics() const {
 	diagnostics["last_yuv_publish_usec"] = last_yuv_publish_usec.get();
 	const uint64_t publish_count = published_frames.get();
 	diagnostics["average_yuv_publish_usec"] = publish_count == 0 ? 0 : total_yuv_publish_usec.get() / publish_count;
+	diagnostics["color_stream_consumers"] = get_color_stream_request_count();
 	diagnostics["size"] = Size2(width, height);
 	diagnostics["fps"] = 30;
 	return diagnostics;
+}
+
+bool CameraFeedVita::supports_color_stream() const {
+	return true;
 }
 
 bool CameraFeedVita::activate_feed() {
@@ -513,6 +518,13 @@ void CameraFeedVita::_update() {
 	last_yuv_publish_usec.set(publish_usec);
 	total_yuv_publish_usec.add(publish_usec);
 	published_frames.increment();
+
+	if (get_color_stream_request_count() > 0) {
+		const Ref<Image> color_image = _convert_latest_to_rgba();
+		if (color_image.is_valid()) {
+			set_color_img(color_image);
+		}
+	}
 }
 
 bool CameraVita::_request_activation(CameraFeedVita *p_feed) {

@@ -71,6 +71,7 @@ private:
 	int id; // unique id for this, for internal use in case feeds are removed
 	int base_width;
 	int base_height;
+	int color_stream_requests;
 
 protected:
 	String name; // name of our camera feed
@@ -111,6 +112,7 @@ public:
 	void set_RGB_img(const Ref<Image> &p_rgb_img);
 	void set_YCbCr_img(const Ref<Image> &p_ycbcr_img);
 	void set_YCbCr_imgs(const Ref<Image> &p_y_img, const Ref<Image> &p_cbcr_img);
+	void set_color_img(const Ref<Image> &p_color_img);
 	void allocate_texture(int p_width, int p_height, Image::Format p_format, VisualServer::TextureType p_texture_type, FeedDataType p_data_type);
 
 	virtual Array get_formats() const;
@@ -119,6 +121,10 @@ public:
 	virtual Ref<Image> capture_image() const;
 	virtual Dictionary get_calibration() const;
 	virtual Dictionary get_diagnostics() const;
+
+	virtual bool supports_color_stream() const;
+	Error request_color_stream(bool p_enable);
+	int get_color_stream_request_count() const;
 
 	virtual bool activate_feed();
 	virtual void deactivate_feed();

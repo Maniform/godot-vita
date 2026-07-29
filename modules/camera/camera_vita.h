@@ -101,6 +101,7 @@ public:
 	virtual Ref<Image> capture_image() const;
 	virtual Dictionary get_calibration() const;
 	virtual Dictionary get_diagnostics() const;
+	virtual bool supports_color_stream() const;
 
 	virtual bool activate_feed();
 	virtual void deactivate_feed();

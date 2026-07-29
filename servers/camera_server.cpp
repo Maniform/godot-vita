@@ -52,6 +52,7 @@ void CameraServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(FEED_YCBCR_IMAGE);
 	BIND_ENUM_CONSTANT(FEED_Y_IMAGE);
 	BIND_ENUM_CONSTANT(FEED_CBCR_IMAGE);
+	BIND_ENUM_CONSTANT(FEED_COLOR_IMAGE);
 };
 
 CameraServer *CameraServer::singleton = nullptr;

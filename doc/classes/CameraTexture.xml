@@ -5,11 +5,27 @@
 	</brief_description>
 	<description>
 		This texture gives access to the camera texture provided by a [CameraFeed]. [method Texture.get_data] returns an independent RGBA snapshot when CPU capture is supported by the selected feed.
-		[b]Note:[/b] Many cameras supply YCbCr images which need to be converted in a shader. Environment camera backgrounds perform this conversion automatically. A [CameraTexture] displaying a separated feed exposes the component selected by [member which_feed], so a canvas shader must combine the Y and CbCr textures for a color preview.
+		[b]Note:[/b] Many cameras supply YCbCr images. Backends supporting an automatic color stream can expose a directly displayable RGBA texture through [method set_color_stream_enabled]. Otherwise, environment camera backgrounds perform conversion automatically, while a [CameraTexture] displaying a separated feed exposes the component selected by [member which_feed] for conversion in a canvas shader.
 	</description>
 	<tutorials>
 	</tutorials>
 	<methods>
+		<method name="is_color_stream_enabled" qualifiers="const">
+			<return type="bool">
+			</return>
+			<description>
+				Returns [code]true[/code] when this texture requested a directly displayable color stream from its feed.
+			</description>
+		</method>
+		<method name="set_color_stream_enabled">
+			<return type="int" enum="Error">
+			</return>
+			<argument index="0" name="enabled" type="bool">
+			</argument>
+			<description>
+				Requests a directly displayable RGBA stream from the selected feed. When enabled successfully, [member which_feed] is set to [constant CameraServer.FEED_COLOR_IMAGE]. The backend performs any required conversion; disabling the option releases this texture's request. Returns [constant ERR_UNAVAILABLE] when the backend does not support automatic color conversion.
+			</description>
+		</method>
 	</methods>
 	<members>
 		<member name="camera_feed_id" type="int" setter="set_camera_feed_id" getter="get_camera_feed_id" default="0">

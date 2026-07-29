@@ -72,5 +72,8 @@
 		<constant name="FEED_CBCR_IMAGE" value="1" enum="FeedImage">
 			The CbCr component camera image.
 		</constant>
+		<constant name="FEED_COLOR_IMAGE" value="2" enum="FeedImage">
+			Directly displayable color texture generated on demand by backends that support [method CameraTexture.set_color_stream_enabled].
+		</constant>
 	</constants>
 </class>

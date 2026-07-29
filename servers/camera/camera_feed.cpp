@@ -147,6 +147,9 @@ RID CameraFeed::get_texture(CameraServer::FeedImage p_which) {
 CameraFeed::CameraFeed() {
 	// initialize our feed
 	id = CameraServer::get_singleton()->get_free_id();
+	base_width = 0;
+	base_height = 0;
+	color_stream_requests = 0;
 	name = "???";
 	active = false;
 	datatype = CameraFeed::FEED_RGB;
@@ -157,8 +160,10 @@ CameraFeed::CameraFeed() {
 	VisualServer *vs = VisualServer::get_singleton();
 	texture[CameraServer::FEED_Y_IMAGE] = RID_PRIME(vs->texture_create()); // also used for RGBA
 	texture[CameraServer::FEED_CBCR_IMAGE] = RID_PRIME(vs->texture_create());
+	texture[CameraServer::FEED_COLOR_IMAGE] = RID_PRIME(vs->texture_create());
 	texture_format[CameraServer::FEED_Y_IMAGE] = Image::FORMAT_MAX;
 	texture_format[CameraServer::FEED_CBCR_IMAGE] = Image::FORMAT_MAX;
+	texture_format[CameraServer::FEED_COLOR_IMAGE] = Image::FORMAT_MAX;
 }
 
 CameraFeed::CameraFeed(String p_name, FeedPosition p_position) {
@@ -166,6 +171,7 @@ CameraFeed::CameraFeed(String p_name, FeedPosition p_position) {
 	id = CameraServer::get_singleton()->get_free_id();
 	base_width = 0;
 	base_height = 0;
+	color_stream_requests = 0;
 	name = p_name;
 	active = false;
 	datatype = CameraFeed::FEED_NOIMAGE;
@@ -176,8 +182,10 @@ CameraFeed::CameraFeed(String p_name, FeedPosition p_position) {
 	VisualServer *vs = VisualServer::get_singleton();
 	texture[CameraServer::FEED_Y_IMAGE] = RID_PRIME(vs->texture_create()); // also used for RGBA
 	texture[CameraServer::FEED_CBCR_IMAGE] = RID_PRIME(vs->texture_create());
+	texture[CameraServer::FEED_COLOR_IMAGE] = RID_PRIME(vs->texture_create());
 	texture_format[CameraServer::FEED_Y_IMAGE] = Image::FORMAT_MAX;
 	texture_format[CameraServer::FEED_CBCR_IMAGE] = Image::FORMAT_MAX;
+	texture_format[CameraServer::FEED_COLOR_IMAGE] = Image::FORMAT_MAX;
 }
 
 CameraFeed::~CameraFeed() {
@@ -185,6 +193,7 @@ CameraFeed::~CameraFeed() {
 	VisualServer *vs = VisualServer::get_singleton();
 	vs->free(texture[CameraServer::FEED_Y_IMAGE]);
 	vs->free(texture[CameraServer::FEED_CBCR_IMAGE]);
+	vs->free(texture[CameraServer::FEED_COLOR_IMAGE]);
 }
 
 void CameraFeed::set_RGB_img(const Ref<Image> &p_rgb_img) {
@@ -270,6 +279,28 @@ void CameraFeed::set_YCbCr_imgs(const Ref<Image> &p_y_img, const Ref<Image> &p_c
 	}
 }
 
+void CameraFeed::set_color_img(const Ref<Image> &p_color_img) {
+	ERR_FAIL_COND(p_color_img.is_null());
+	if (!active || color_stream_requests == 0) {
+		return;
+	}
+
+	const int new_width = p_color_img->get_width();
+	const int new_height = p_color_img->get_height();
+	const Image::Format new_format = p_color_img->get_format();
+	ERR_FAIL_COND(new_format != Image::FORMAT_RGB8 && new_format != Image::FORMAT_RGBA8);
+
+	VisualServer *vs = VisualServer::get_singleton();
+	if ((int)vs->texture_get_width(texture[CameraServer::FEED_COLOR_IMAGE]) != new_width ||
+			(int)vs->texture_get_height(texture[CameraServer::FEED_COLOR_IMAGE]) != new_height ||
+			texture_format[CameraServer::FEED_COLOR_IMAGE] != new_format) {
+		const uint32_t streaming_flags = VS::TEXTURE_FLAG_FILTER | VS::TEXTURE_FLAG_USED_FOR_STREAMING;
+		vs->texture_allocate(texture[CameraServer::FEED_COLOR_IMAGE], new_width, new_height, 0, new_format, VS::TEXTURE_TYPE_2D, streaming_flags);
+		texture_format[CameraServer::FEED_COLOR_IMAGE] = new_format;
+	}
+	vs->texture_set_data(texture[CameraServer::FEED_COLOR_IMAGE], p_color_img);
+}
+
 void CameraFeed::allocate_texture(int p_width, int p_height, Image::Format p_format, VisualServer::TextureType p_texture_type, FeedDataType p_data_type) {
 	VisualServer *vs = VisualServer::get_singleton();
 
@@ -310,6 +341,26 @@ Dictionary CameraFeed::get_calibration() const {
 
 Dictionary CameraFeed::get_diagnostics() const {
 	return Dictionary();
+}
+
+bool CameraFeed::supports_color_stream() const {
+	return false;
+}
+
+Error CameraFeed::request_color_stream(bool p_enable) {
+	if (p_enable) {
+		if (!supports_color_stream()) {
+			return ERR_UNAVAILABLE;
+		}
+		color_stream_requests++;
+	} else if (color_stream_requests > 0) {
+		color_stream_requests--;
+	}
+	return OK;
+}
+
+int CameraFeed::get_color_stream_request_count() const {
+	return color_stream_requests;
 }
 
 bool CameraFeed::activate_feed() {
