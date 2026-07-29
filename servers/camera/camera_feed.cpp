@@ -157,6 +157,8 @@ CameraFeed::CameraFeed() {
 	VisualServer *vs = VisualServer::get_singleton();
 	texture[CameraServer::FEED_Y_IMAGE] = RID_PRIME(vs->texture_create()); // also used for RGBA
 	texture[CameraServer::FEED_CBCR_IMAGE] = RID_PRIME(vs->texture_create());
+	texture_format[CameraServer::FEED_Y_IMAGE] = Image::FORMAT_MAX;
+	texture_format[CameraServer::FEED_CBCR_IMAGE] = Image::FORMAT_MAX;
 }
 
 CameraFeed::CameraFeed(String p_name, FeedPosition p_position) {
@@ -174,6 +176,8 @@ CameraFeed::CameraFeed(String p_name, FeedPosition p_position) {
 	VisualServer *vs = VisualServer::get_singleton();
 	texture[CameraServer::FEED_Y_IMAGE] = RID_PRIME(vs->texture_create()); // also used for RGBA
 	texture[CameraServer::FEED_CBCR_IMAGE] = RID_PRIME(vs->texture_create());
+	texture_format[CameraServer::FEED_Y_IMAGE] = Image::FORMAT_MAX;
+	texture_format[CameraServer::FEED_CBCR_IMAGE] = Image::FORMAT_MAX;
 }
 
 CameraFeed::~CameraFeed() {
@@ -193,12 +197,13 @@ void CameraFeed::set_RGB_img(const Ref<Image> &p_rgb_img) {
 		Image::Format new_format = p_rgb_img->get_format();
 		ERR_FAIL_COND(new_format != Image::FORMAT_RGB8 && new_format != Image::FORMAT_RGBA8);
 
-		if ((base_width != new_width) || (base_height != new_height)) {
+		if ((base_width != new_width) || (base_height != new_height) || texture_format[CameraServer::FEED_RGBA_IMAGE] != new_format) {
 			// We're assuming here that our camera image doesn't change around formats etc, allocate the whole lot...
 			base_width = new_width;
 			base_height = new_height;
 
 			vs->texture_allocate(texture[CameraServer::FEED_RGBA_IMAGE], new_width, new_height, 0, new_format, VS::TEXTURE_TYPE_2D, VS::TEXTURE_FLAGS_DEFAULT);
+			texture_format[CameraServer::FEED_RGBA_IMAGE] = new_format;
 		}
 
 		vs->texture_set_data(texture[CameraServer::FEED_RGBA_IMAGE], p_rgb_img);
@@ -241,16 +246,22 @@ void CameraFeed::set_YCbCr_imgs(const Ref<Image> &p_y_img, const Ref<Image> &p_c
 		int new_y_height = p_y_img->get_height();
 		int new_cbcr_width = p_cbcr_img->get_width();
 		int new_cbcr_height = p_cbcr_img->get_height();
+		Image::Format new_y_format = p_y_img->get_format();
+		Image::Format new_cbcr_format = p_cbcr_img->get_format();
 
-		if ((base_width != new_y_width) || (base_height != new_y_height)) {
-			// We're assuming here that our camera image doesn't change around formats etc, allocate the whole lot...
+		if ((base_width != new_y_width) || (base_height != new_y_height) ||
+				(int)vs->texture_get_width(texture[CameraServer::FEED_CBCR_IMAGE]) != new_cbcr_width ||
+				(int)vs->texture_get_height(texture[CameraServer::FEED_CBCR_IMAGE]) != new_cbcr_height ||
+				texture_format[CameraServer::FEED_Y_IMAGE] != new_y_format ||
+				texture_format[CameraServer::FEED_CBCR_IMAGE] != new_cbcr_format) {
 			base_width = new_y_width;
 			base_height = new_y_height;
 
-			vs->texture_allocate(texture[CameraServer::FEED_Y_IMAGE], new_y_width, new_y_height, 0, Image::FORMAT_R8, VS::TEXTURE_TYPE_2D, VS::TEXTURE_FLAG_USED_FOR_STREAMING);
-
-			///@TODO GLES2 doesn't support FORMAT_RG8, need to do some form of conversion
-			vs->texture_allocate(texture[CameraServer::FEED_CBCR_IMAGE], new_cbcr_width, new_cbcr_height, 0, Image::FORMAT_RG8, VS::TEXTURE_TYPE_2D, VS::TEXTURE_FLAG_USED_FOR_STREAMING);
+			const uint32_t streaming_flags = VS::TEXTURE_FLAG_FILTER | VS::TEXTURE_FLAG_USED_FOR_STREAMING;
+			vs->texture_allocate(texture[CameraServer::FEED_Y_IMAGE], new_y_width, new_y_height, 0, new_y_format, VS::TEXTURE_TYPE_2D, streaming_flags);
+			vs->texture_allocate(texture[CameraServer::FEED_CBCR_IMAGE], new_cbcr_width, new_cbcr_height, 0, new_cbcr_format, VS::TEXTURE_TYPE_2D, streaming_flags);
+			texture_format[CameraServer::FEED_Y_IMAGE] = new_y_format;
+			texture_format[CameraServer::FEED_CBCR_IMAGE] = new_cbcr_format;
 		}
 
 		vs->texture_set_data(texture[CameraServer::FEED_Y_IMAGE], p_y_img);

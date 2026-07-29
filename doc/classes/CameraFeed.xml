@@ -25,20 +25,20 @@
 		<method name="get_diagnostics" qualifiers="const">
 			<return type="Dictionary" />
 			<description>
-				Returns backend diagnostics when available. The Vita backend reports captured, published, and dropped frame counters together with the latest frame age, identifier, timestamp, size, and frame rate.
+				Returns backend diagnostics when available. The Vita backend reports captured, published, and dropped frame counters; frame age and format; YUV publication timing; and on-demand RGBA conversion timing.
 			</description>
 		</method>
 		<method name="get_formats" qualifiers="const">
 			<return type="Array" />
 			<description>
-				Returns the capture formats supported by this feed. Each entry is a dictionary containing [code]size[/code] and [code]fps[/code]. An empty array means format selection is unavailable.
+				Returns the capture formats supported by this feed. Each entry is a dictionary containing [code]size[/code] and [code]fps[/code], and may include a backend-specific [code]native_format[/code]. An empty array means format selection is unavailable.
 			</description>
 		</method>
 		<method name="get_latest_frame" qualifiers="const">
 			<return type="CameraFrame" />
 			<argument index="0" name="format" type="int" enum="CameraFeed.FrameFormat" default="0" />
 			<description>
-				Returns an independent snapshot of the latest completed frame, including its metadata. Returns an empty reference when no frame is available or the requested format is unsupported.
+				Returns an independent snapshot of the latest completed frame, including its metadata. Returns an empty reference when no frame is available or the requested format is unsupported. A backend using a native YUV stream may perform an on-demand conversion when [constant FRAME_RGBA] is requested.
 			</description>
 		</method>
 		<method name="set_capture_format">

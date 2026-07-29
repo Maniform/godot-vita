@@ -40,6 +40,7 @@
 #include <string.h>
 
 static const int VITA_CAMERA_BUFFER_ALIGNMENT = 256 * 1024;
+static const int VITA_CAMERA_PLANE_ALIGNMENT = 256;
 
 static String _camera_error(const char *p_operation, int p_device, int p_error) {
 	return vformat("Vita camera %s failed for device %d (error 0x%08x).", p_operation, p_device, (uint32_t)p_error);
@@ -54,9 +55,14 @@ CameraFeedVita::CameraFeedVita(CameraVita *p_camera_server, int p_device) :
 		height(480),
 		resolution(SCE_CAMERA_RESOLUTION_640_480),
 		framerate(SCE_CAMERA_FRAMERATE_30_FPS),
-		frame_size(width * height * 4),
+		y_plane_size(width * height),
+		chroma_plane_size((width / 2) * (height / 2)),
+		frame_size(y_plane_size + chroma_plane_size * 2),
+		camera_allocation_size(0),
 		camera_memblock(-1),
 		camera_buffer(nullptr),
+		camera_u_buffer(nullptr),
+		camera_v_buffer(nullptr),
 		exit_thread(false),
 		capture_error(0),
 		frame_pending(false),
@@ -66,7 +72,12 @@ CameraFeedVita::CameraFeedVita(CameraVita *p_camera_server, int p_device) :
 		latest_received_usec(0),
 		captured_frames(0),
 		published_frames(0),
-		dropped_frames(0) {
+		dropped_frames(0),
+		rgba_conversions(0),
+		last_rgba_conversion_usec(0),
+		total_rgba_conversion_usec(0),
+		last_yuv_publish_usec(0),
+		total_yuv_publish_usec(0) {
 	pending_frame.resize(frame_size);
 
 	if (device == SCE_CAMERA_DEVICE_FRONT) {
@@ -80,11 +91,15 @@ CameraFeedVita::~CameraFeedVita() {
 }
 
 bool CameraFeedVita::_open_camera() {
-	const int allocation_size = (frame_size + VITA_CAMERA_BUFFER_ALIGNMENT - 1) & ~(VITA_CAMERA_BUFFER_ALIGNMENT - 1);
-	camera_memblock = sceKernelAllocMemBlock("godot_camera", SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW, allocation_size, nullptr);
+	const int u_offset = (y_plane_size + VITA_CAMERA_PLANE_ALIGNMENT - 1) & ~(VITA_CAMERA_PLANE_ALIGNMENT - 1);
+	const int v_offset = (u_offset + chroma_plane_size + VITA_CAMERA_PLANE_ALIGNMENT - 1) & ~(VITA_CAMERA_PLANE_ALIGNMENT - 1);
+	const int required_size = v_offset + chroma_plane_size;
+	camera_allocation_size = (required_size + VITA_CAMERA_BUFFER_ALIGNMENT - 1) & ~(VITA_CAMERA_BUFFER_ALIGNMENT - 1);
+	camera_memblock = sceKernelAllocMemBlock("godot_camera", SCE_KERNEL_MEMBLOCK_TYPE_USER_CDRAM_RW, camera_allocation_size, nullptr);
 	if (camera_memblock < 0) {
 		ERR_PRINT(_camera_error("memory allocation", device, camera_memblock));
 		camera_memblock = -1;
+		camera_allocation_size = 0;
 		return false;
 	}
 
@@ -94,28 +109,34 @@ bool CameraFeedVita::_open_camera() {
 		_close_camera();
 		return false;
 	}
+	camera_u_buffer = static_cast<uint8_t *>(camera_buffer) + u_offset;
+	camera_v_buffer = static_cast<uint8_t *>(camera_buffer) + v_offset;
 
 	SceCameraInfo camera_info = {};
 	camera_info.size = sizeof(SceCameraInfo);
 	camera_info.priority = SCE_CAMERA_PRIORITY_SHARE;
-	camera_info.format = SCE_CAMERA_FORMAT_ABGR;
+	camera_info.format = SCE_CAMERA_FORMAT_YUV420_PLANE;
 	camera_info.resolution = resolution;
 	camera_info.framerate = framerate;
-	camera_info.sizeIBase = frame_size;
+	camera_info.sizeIBase = y_plane_size;
+	camera_info.sizeUBase = chroma_plane_size;
+	camera_info.sizeVBase = chroma_plane_size;
 	camera_info.pIBase = camera_buffer;
+	camera_info.pUBase = camera_u_buffer;
+	camera_info.pVBase = camera_v_buffer;
 	camera_info.pitch = 0;
 	camera_info.buffer = 0;
 
 	result = sceCameraOpen(device, &camera_info);
 	if (result < 0) {
-		ERR_PRINT(_camera_error("open", device, result));
+		ERR_PRINT(_camera_error("open YUV420", device, result));
 		_close_camera();
 		return false;
 	}
 
 	result = sceCameraStart(device);
 	if (result < 0) {
-		ERR_PRINT(_camera_error("start", device, result));
+		ERR_PRINT(_camera_error("start YUV420", device, result));
 		sceCameraClose(device);
 		_close_camera();
 		return false;
@@ -130,6 +151,9 @@ void CameraFeedVita::_close_camera() {
 		camera_memblock = -1;
 	}
 	camera_buffer = nullptr;
+	camera_u_buffer = nullptr;
+	camera_v_buffer = nullptr;
+	camera_allocation_size = 0;
 }
 
 void CameraFeedVita::_capture_thread(void *p_userdata) {
@@ -152,8 +176,13 @@ void CameraFeedVita::_capture_loop() {
 			break;
 		}
 
-		const void *source = camera_read.pIBase != nullptr ? camera_read.pIBase : camera_buffer;
-		if (source == nullptr || (camera_read.sizeIBase > 0 && camera_read.sizeIBase < (SceSize)frame_size)) {
+		const void *y_source = camera_read.pIBase != nullptr ? camera_read.pIBase : camera_buffer;
+		const void *u_source = camera_read.pUBase != nullptr ? camera_read.pUBase : camera_u_buffer;
+		const void *v_source = camera_read.pVBase != nullptr ? camera_read.pVBase : camera_v_buffer;
+		if (y_source == nullptr || u_source == nullptr || v_source == nullptr ||
+				(camera_read.sizeIBase > 0 && camera_read.sizeIBase < (SceSize)y_plane_size) ||
+				(camera_read.sizeUBase > 0 && camera_read.sizeUBase < (SceSize)chroma_plane_size) ||
+				(camera_read.sizeVBase > 0 && camera_read.sizeVBase < (SceSize)chroma_plane_size)) {
 			capture_error.set(SCE_CAMERA_ERROR_FATAL);
 			break;
 		}
@@ -164,7 +193,10 @@ void CameraFeedVita::_capture_loop() {
 			if (frame_pending) {
 				dropped_frames.increment();
 			}
-			memcpy(pending_frame.ptrw(), source, frame_size);
+			uint8_t *pending = pending_frame.ptrw();
+			memcpy(pending, y_source, y_plane_size);
+			memcpy(pending + y_plane_size, u_source, chroma_plane_size);
+			memcpy(pending + y_plane_size + chroma_plane_size, v_source, chroma_plane_size);
 			pending_frame_id = camera_read.frame;
 			pending_timestamp_usec = camera_read.timestamp;
 			pending_received_usec = OS::get_singleton()->get_ticks_usec();
@@ -182,6 +214,7 @@ Array CameraFeedVita::get_formats() const {
 		Dictionary format;
 		format["size"] = Size2(widths[i], heights[i]);
 		format["fps"] = 30;
+		format["native_format"] = "YUV420_PLANAR";
 		formats.push_back(format);
 	}
 	return formats;
@@ -215,34 +248,83 @@ Error CameraFeedVita::set_capture_format(const Size2 &p_size, int p_fps) {
 	height = requested_height;
 	resolution = requested_resolution;
 	framerate = SCE_CAMERA_FRAMERATE_30_FPS;
-	frame_size = width * height * 4;
+	y_plane_size = width * height;
+	chroma_plane_size = (width / 2) * (height / 2);
+	frame_size = y_plane_size + chroma_plane_size * 2;
 	pending_frame.resize(frame_size);
-	latest_frame.unref();
 	latest_luminance_frame.unref();
+	latest_chroma_image.unref();
 	latest_received_usec = 0;
 	return OK;
 }
 
+Ref<Image> CameraFeedVita::_convert_latest_to_rgba() const {
+	if (!is_active() || latest_luminance_frame.is_null() || latest_luminance_frame->get_image().is_null() || latest_chroma_image.is_null()) {
+		return Ref<Image>();
+	}
+
+	const uint64_t conversion_start_usec = OS::get_singleton()->get_ticks_usec();
+	const PoolVector<uint8_t> y_data = latest_luminance_frame->get_image()->get_data();
+	const PoolVector<uint8_t> cbcr_data = latest_chroma_image->get_data();
+	if (y_data.size() != y_plane_size || cbcr_data.size() != chroma_plane_size * 3) {
+		return Ref<Image>();
+	}
+
+	PoolVector<uint8_t> rgba_data;
+	rgba_data.resize(width * height * 4);
+	{
+		PoolVector<uint8_t>::Read y = y_data.read();
+		PoolVector<uint8_t>::Read cbcr = cbcr_data.read();
+		PoolVector<uint8_t>::Write rgba = rgba_data.write();
+		const int chroma_width = width / 2;
+		for (int row = 0; row < height; row++) {
+			for (int column = 0; column < width; column++) {
+				const int pixel = row * width + column;
+				const int chroma = ((row / 2) * chroma_width + column / 2) * 3;
+				const int luminance = y[pixel];
+				const int cb = (int)cbcr[chroma] - 128;
+				const int cr = (int)cbcr[chroma + 1] - 128;
+				const int output = pixel * 4;
+				rgba[output] = CLAMP(luminance + ((359 * cr) >> 8), 0, 255);
+				rgba[output + 1] = CLAMP(luminance - ((88 * cb + 183 * cr) >> 8), 0, 255);
+				rgba[output + 2] = CLAMP(luminance + ((454 * cb) >> 8), 0, 255);
+				rgba[output + 3] = 255;
+			}
+		}
+	}
+
+	Ref<Image> image;
+	image.instance();
+	image->create(width, height, false, Image::FORMAT_RGBA8, rgba_data);
+	const uint64_t conversion_usec = OS::get_singleton()->get_ticks_usec() - conversion_start_usec;
+	rgba_conversions.increment();
+	last_rgba_conversion_usec.set(conversion_usec);
+	total_rgba_conversion_usec.add(conversion_usec);
+	return image;
+}
+
 Ref<CameraFrame> CameraFeedVita::get_latest_frame(FrameFormat p_format) const {
-	if (!is_active()) {
+	if (!is_active() || latest_luminance_frame.is_null()) {
 		return Ref<CameraFrame>();
 	}
 
-	Ref<CameraFrame> source_frame;
+	Ref<Image> image;
 	if (p_format == FRAME_RGBA) {
-		source_frame = latest_frame;
-	} else if (p_format == FRAME_LUMINANCE) {
-		source_frame = latest_luminance_frame;
+		image = _convert_latest_to_rgba();
+	} else if (p_format == FRAME_LUMINANCE && latest_luminance_frame->get_image().is_valid()) {
+		image = latest_luminance_frame->get_image()->duplicate();
 	} else {
 		return Ref<CameraFrame>();
 	}
-
-	if (source_frame.is_null() || source_frame->get_image().is_null()) {
+	if (image.is_null()) {
 		return Ref<CameraFrame>();
 	}
 
-	Ref<Image> image = source_frame->get_image()->duplicate();
-	return Ref<CameraFrame>(memnew(CameraFrame(image, source_frame->get_frame_id(), source_frame->get_timestamp_usec(), source_frame->get_device_orientation(), source_frame->get_camera_position(), source_frame->is_orientation_available(), source_frame->is_orientation_interpolated(), source_frame->get_orientation_error_usec())));
+	return Ref<CameraFrame>(memnew(CameraFrame(image, latest_luminance_frame->get_frame_id(), latest_luminance_frame->get_timestamp_usec(), latest_luminance_frame->get_device_orientation(), latest_luminance_frame->get_camera_position(), latest_luminance_frame->is_orientation_available(), latest_luminance_frame->is_orientation_interpolated(), latest_luminance_frame->get_orientation_error_usec())));
+}
+
+Ref<Image> CameraFeedVita::capture_image() const {
+	return _convert_latest_to_rgba();
 }
 
 Dictionary CameraFeedVita::get_calibration() const {
@@ -280,8 +362,18 @@ Dictionary CameraFeedVita::get_diagnostics() const {
 	diagnostics["published_frames"] = published_frames.get();
 	diagnostics["dropped_frames"] = dropped_frames.get();
 	diagnostics["latest_frame_age_usec"] = latest_received_usec == 0 ? 0 : OS::get_singleton()->get_ticks_usec() - latest_received_usec;
-	diagnostics["latest_frame_id"] = latest_frame.is_valid() ? latest_frame->get_frame_id() : 0;
-	diagnostics["latest_timestamp_usec"] = latest_frame.is_valid() ? latest_frame->get_timestamp_usec() : 0;
+	diagnostics["latest_frame_id"] = latest_luminance_frame.is_valid() ? latest_luminance_frame->get_frame_id() : 0;
+	diagnostics["latest_timestamp_usec"] = latest_luminance_frame.is_valid() ? latest_luminance_frame->get_timestamp_usec() : 0;
+	diagnostics["native_format"] = "YUV420_PLANAR";
+	diagnostics["native_frame_bytes"] = frame_size;
+	diagnostics["camera_buffer_bytes"] = camera_allocation_size;
+	diagnostics["rgba_conversions"] = rgba_conversions.get();
+	diagnostics["last_rgba_conversion_usec"] = last_rgba_conversion_usec.get();
+	const uint64_t conversion_count = rgba_conversions.get();
+	diagnostics["average_rgba_conversion_usec"] = conversion_count == 0 ? 0 : total_rgba_conversion_usec.get() / conversion_count;
+	diagnostics["last_yuv_publish_usec"] = last_yuv_publish_usec.get();
+	const uint64_t publish_count = published_frames.get();
+	diagnostics["average_yuv_publish_usec"] = publish_count == 0 ? 0 : total_yuv_publish_usec.get() / publish_count;
 	diagnostics["size"] = Size2(width, height);
 	diagnostics["fps"] = 30;
 	return diagnostics;
@@ -301,6 +393,11 @@ bool CameraFeedVita::activate_feed() {
 	captured_frames.set(0);
 	published_frames.set(0);
 	dropped_frames.set(0);
+	rgba_conversions.set(0);
+	last_rgba_conversion_usec.set(0);
+	total_rgba_conversion_usec.set(0);
+	last_yuv_publish_usec.set(0);
+	total_yuv_publish_usec.set(0);
 	latest_received_usec = 0;
 	{
 		MutexLock lock(frame_mutex);
@@ -342,8 +439,8 @@ void CameraFeedVita::deactivate_feed() {
 
 	_close_camera();
 	capture_error.set(0);
-	latest_frame.unref();
 	latest_luminance_frame.unref();
+	latest_chroma_image.unref();
 	latest_received_usec = 0;
 	{
 		MutexLock lock(frame_mutex);
@@ -354,12 +451,12 @@ void CameraFeedVita::deactivate_feed() {
 void CameraFeedVita::_update() {
 	const int error = capture_error.get();
 	if (error < 0) {
-		ERR_PRINT(_camera_error("read", device, error));
+		ERR_PRINT(_camera_error("read YUV420", device, error));
 		set_active(false);
 		return;
 	}
 
-	PoolVector<uint8_t> image_data;
+	PoolVector<uint8_t> frame_data;
 	uint64_t frame_id = 0;
 	uint64_t timestamp_usec = 0;
 	uint64_t received_usec = 0;
@@ -368,12 +465,8 @@ void CameraFeedVita::_update() {
 		if (!frame_pending) {
 			return;
 		}
-		image_data.resize(frame_size);
-		PoolVector<uint8_t>::Write write = image_data.write();
-
-		// SCE_CAMERA_FORMAT_ABGR is A8B8G8R8 as a 32-bit value. On the
-		// little-endian Vita its memory byte order is R, G, B, A, matching
-		// Image::FORMAT_RGBA8.
+		frame_data.resize(frame_size);
+		PoolVector<uint8_t>::Write write = frame_data.write();
 		memcpy(write.ptr(), pending_frame.ptr(), frame_size);
 		frame_id = pending_frame_id;
 		timestamp_usec = pending_timestamp_usec;
@@ -381,14 +474,22 @@ void CameraFeedVita::_update() {
 		frame_pending = false;
 	}
 
+	const uint64_t publish_start_usec = OS::get_singleton()->get_ticks_usec();
 	PoolVector<uint8_t> luminance_data;
-	luminance_data.resize(width * height);
+	PoolVector<uint8_t> cbcr_data;
+	luminance_data.resize(y_plane_size);
+	cbcr_data.resize(chroma_plane_size * 3);
 	{
-		PoolVector<uint8_t>::Read rgba = image_data.read();
+		PoolVector<uint8_t>::Read source = frame_data.read();
 		PoolVector<uint8_t>::Write luminance = luminance_data.write();
-		for (int i = 0; i < width * height; i++) {
-			const int rgba_offset = i * 4;
-			luminance[i] = (77 * rgba[rgba_offset] + 150 * rgba[rgba_offset + 1] + 29 * rgba[rgba_offset + 2] + 128) >> 8;
+		PoolVector<uint8_t>::Write cbcr = cbcr_data.write();
+		memcpy(luminance.ptr(), source.ptr(), y_plane_size);
+		const uint8_t *u = source.ptr() + y_plane_size;
+		const uint8_t *v = u + chroma_plane_size;
+		for (int i = 0; i < chroma_plane_size; i++) {
+			cbcr[i * 3] = u[i];
+			cbcr[i * 3 + 1] = v[i];
+			cbcr[i * 3 + 2] = 0;
 		}
 	}
 
@@ -397,18 +498,21 @@ void CameraFeedVita::_update() {
 	uint64_t orientation_error_usec = 0;
 	const bool orientation_available = VitaOrientationHistory::get_singleton()->get_orientation(timestamp_usec, orientation, orientation_interpolated, orientation_error_usec);
 
-	Ref<Image> image;
-	image.instance();
-	image->create(width, height, false, Image::FORMAT_RGBA8, image_data);
 	Ref<Image> luminance_image;
 	luminance_image.instance();
 	luminance_image->create(width, height, false, Image::FORMAT_L8, luminance_data);
+	Ref<Image> cbcr_image;
+	cbcr_image.instance();
+	cbcr_image->create(width / 2, height / 2, false, Image::FORMAT_RGB8, cbcr_data);
 
-	latest_frame = Ref<CameraFrame>(memnew(CameraFrame(image, frame_id, timestamp_usec, orientation, get_position(), orientation_available, orientation_interpolated, orientation_error_usec)));
 	latest_luminance_frame = Ref<CameraFrame>(memnew(CameraFrame(luminance_image, frame_id, timestamp_usec, orientation, get_position(), orientation_available, orientation_interpolated, orientation_error_usec)));
+	latest_chroma_image = cbcr_image;
 	latest_received_usec = received_usec;
+	set_YCbCr_imgs(luminance_image, cbcr_image);
+	const uint64_t publish_usec = OS::get_singleton()->get_ticks_usec() - publish_start_usec;
+	last_yuv_publish_usec.set(publish_usec);
+	total_yuv_publish_usec.add(publish_usec);
 	published_frames.increment();
-	set_RGB_img(image);
 }
 
 bool CameraVita::_request_activation(CameraFeedVita *p_feed) {

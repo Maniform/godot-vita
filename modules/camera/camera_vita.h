@@ -55,10 +55,15 @@ class CameraFeedVita : public CameraFeed {
 	int height;
 	int resolution;
 	int framerate;
+	int y_plane_size;
+	int chroma_plane_size;
 	int frame_size;
+	int camera_allocation_size;
 
 	SceUID camera_memblock;
 	void *camera_buffer;
+	void *camera_u_buffer;
+	void *camera_v_buffer;
 
 	Thread capture_thread;
 	SafeFlag exit_thread;
@@ -69,24 +74,31 @@ class CameraFeedVita : public CameraFeed {
 	uint64_t pending_frame_id;
 	uint64_t pending_timestamp_usec;
 	uint64_t pending_received_usec;
-	Ref<CameraFrame> latest_frame;
 	Ref<CameraFrame> latest_luminance_frame;
+	Ref<Image> latest_chroma_image;
 	uint64_t latest_received_usec;
 
 	SafeNumeric<uint64_t> captured_frames;
 	SafeNumeric<uint64_t> published_frames;
 	SafeNumeric<uint64_t> dropped_frames;
+	mutable SafeNumeric<uint64_t> rgba_conversions;
+	mutable SafeNumeric<uint64_t> last_rgba_conversion_usec;
+	mutable SafeNumeric<uint64_t> total_rgba_conversion_usec;
+	SafeNumeric<uint64_t> last_yuv_publish_usec;
+	SafeNumeric<uint64_t> total_yuv_publish_usec;
 
 	static void _capture_thread(void *p_userdata);
 	void _capture_loop();
 	bool _open_camera();
 	void _close_camera();
+	Ref<Image> _convert_latest_to_rgba() const;
 	void _update();
 
 public:
 	virtual Array get_formats() const;
 	virtual Error set_capture_format(const Size2 &p_size, int p_fps);
 	virtual Ref<CameraFrame> get_latest_frame(FrameFormat p_format = FRAME_RGBA) const;
+	virtual Ref<Image> capture_image() const;
 	virtual Dictionary get_calibration() const;
 	virtual Dictionary get_diagnostics() const;
 

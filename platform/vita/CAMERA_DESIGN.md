@@ -284,9 +284,18 @@ After the ABGR path is validated, add `SCE_CAMERA_FORMAT_YUV420_PLANE`:
 
 The existing separated-YUV path cannot be used unchanged on Vita GLES2:
 `Image::FORMAT_R8` is mapped to `GL_ALPHA`, while the camera copy shader samples
-the red channel. The Vita path must use luminance textures or adjust the shader
-and texture format consistently. `RG8` is also converted by the GLES2 backend,
-so explicit U/V packing into a supported format is preferable.
+the red channel. MR4 therefore uploads Y as `Image::FORMAT_L8` and packs U/V in
+the red and green channels of a half-resolution `Image::FORMAT_RGB8` texture.
+Both are streaming textures with linear filtering. Environment backgrounds use
+the engine's separated-YCbCr shader; canvas previews combine two
+`CameraTexture` resources with the same BT.601 matrix.
+
+The native mailbox retains 1.5 bytes per pixel instead of four. Packing the
+preview chroma texture costs 0.75 bytes per source pixel, while RGBA allocation
+and conversion are deferred until `capture_image()` or
+`get_latest_frame(FRAME_RGBA)` is called. Diagnostics expose native and CDRAM
+buffer sizes, YUV publication time, and RGBA conversion count/time for hardware
+comparison on VitaGL and PVR.
 
 ## Still-image Capture
 

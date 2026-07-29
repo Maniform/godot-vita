@@ -1,9 +1,12 @@
 extends Control
 
 const AR_PROCESS_INTERVAL := 1.0 / 15.0
+const YUV_PREVIEW_SHADER := preload("res://Yuv420Preview.shader")
 
 var camera_feed: CameraFeed
 var camera_texture := CameraTexture.new()
+var chroma_texture := CameraTexture.new()
+var preview_material := ShaderMaterial.new()
 var capture_index := 0
 var ar_process_accumulator := 0.0
 var last_luminance_frame_id := -1
@@ -25,9 +28,16 @@ func _ready() -> void:
 		return
 
 	camera_texture.camera_feed_id = camera_feed.get_id()
-	camera_texture.camera_is_active = true
+	camera_texture.which_feed = CameraServer.FEED_Y_IMAGE
+	chroma_texture.camera_feed_id = camera_feed.get_id()
+	chroma_texture.which_feed = CameraServer.FEED_CBCR_IMAGE
+
+	preview_material.shader = YUV_PREVIEW_SHADER
+	preview_material.set_shader_param("cbcr_texture", chroma_texture)
 	$Margin/VBox/Preview.texture = camera_texture
-	$Margin/VBox/Status.text = "Rear camera active; AR frames limited to 15 FPS"
+	$Margin/VBox/Preview.material = preview_material
+	camera_texture.camera_is_active = true
+	$Margin/VBox/Status.text = "Rear camera active in YUV420; AR frames limited to 15 FPS"
 
 func _process(delta: float) -> void:
 	if camera_feed == null or not camera_feed.is_active():
@@ -53,12 +63,16 @@ func _process(delta: float) -> void:
 	if frame.orientation_available:
 		orientation_quality = "interpolated" if frame.orientation_interpolated else "nearest (%d us)" % frame.orientation_error_usec
 
-	$Margin/VBox/Diagnostics.text = "Frame %d | Y %.3f | orientation %s | age %d us | dropped %d | calibration %s" % [
+	$Margin/VBox/Diagnostics.text = "Frame %d | Y %.3f | %s | orientation %s | age %d us | dropped %d | YUV %d us | RGBA %d/%d us | calibration %s" % [
 		frame.frame_id,
 		center_luminance,
+		diagnostics.get("native_format", "unknown"),
 		orientation_quality,
 		diagnostics.get("latest_frame_age_usec", 0),
 		diagnostics.get("dropped_frames", 0),
+		diagnostics.get("last_yuv_publish_usec", 0),
+		diagnostics.get("rgba_conversions", 0),
+		diagnostics.get("last_rgba_conversion_usec", 0),
 		"valid" if calibration.get("valid", false) else "unset"
 	]
 
