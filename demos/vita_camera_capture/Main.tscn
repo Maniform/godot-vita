@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=2]
+[gd_scene load_steps=3 format=2]
 
 [ext_resource path="res://Main.gd" type="Script" id=1]
+[ext_resource path="res://AROverlay.gd" type="Script" id=2]
 
 [node name="VitaCameraCapture" type="Control"]
 anchor_right = 1.0
@@ -25,6 +26,12 @@ margin_bottom = 456.0
 rect_min_size = Vector2( 0, 456 )
 expand = true
 stretch_mode = 6
+
+[node name="AROverlay" type="Control" parent="Margin/VBox/Preview"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+script = ExtResource( 2 )
 
 [node name="Capture" type="Button" parent="Margin/VBox"]
 margin_top = 460.0

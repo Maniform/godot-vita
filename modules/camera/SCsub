@@ -16,3 +16,4 @@ elif env["platform"] == "osx":
 elif env["platform"] == "vita":
     env_camera.add_source_files(env.modules_sources, "register_types.cpp")
     env_camera.add_source_files(env.modules_sources, "camera_vita.cpp")
+    env_camera.add_source_files(env.modules_sources, "vita_ar_marker_tracker.cpp")

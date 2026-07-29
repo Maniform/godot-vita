@@ -413,6 +413,27 @@ alone cannot recover stable translation, and a production SLAM implementation
 would require additional CPU optimization, mapping, relocalization, and
 calibration work.
 
+### MR5 demonstration implementation
+
+MR5 adds a Vita-only `VitaARMarkerTracker` reference class. It remains separate
+from `CameraServer`: the camera backend only supplies luminance frames,
+timestamps, orientation, and calibration. The tracker performs Otsu
+thresholding, connected-component candidate extraction, validation of the
+asymmetric marker payload, distortion-aware planar homography decomposition,
+and returns a camera-coordinate pose.
+
+The demonstration projects a wireframe cube with the configured intrinsics and
+distortion coefficients. Pose smoothing is confined to the overlay so consumers
+can still access the raw result. Tracking is capped at 15 FPS and always uses
+unique luminance frames; preview remains at the camera frame rate.
+
+No universal Vita intrinsics are embedded. MR5 includes a workstation
+calibration tool for separate front and rear checkerboard capture sets, plus a
+printable 80 mm marker. The demonstration disables pose estimation while the
+selected profile has a zero focal length. Physical calibration values and
+camera-to-device extrinsics must be measured on hardware rather than inferred
+by the engine.
+
 ## Error Handling
 
 Every negative `sceCamera` result should be logged with:
@@ -514,13 +535,18 @@ Exit criteria: lower CPU or memory cost without preview or capture regressions.
 
 ### Phase 5: AR demonstration
 
-- Calibrate front and rear cameras.
-- Render a projection using the calibrated intrinsics.
-- Add a marker-based pose-estimation demonstration.
-- Verify overlay stability while rotating and translating the console.
+Implemented by MR5:
 
-This phase validates the camera foundation but does not make the marker tracker
-part of `CameraServer`.
+- provide a repeatable checkerboard workflow for separate front and rear
+  intrinsic calibration;
+- render a distortion-aware projection using the calibrated intrinsics;
+- add a native marker-based pose-estimation demonstration and printable marker;
+- expose confidence and tracker CPU time in the demonstration diagnostics.
+
+Physical calibration results and overlay stability while rotating and
+translating the console remain device-validation tasks. This phase validates
+the camera foundation but does not make the marker tracker part of
+`CameraServer`.
 
 ## Testing
 

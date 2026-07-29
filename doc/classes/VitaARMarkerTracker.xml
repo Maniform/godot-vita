@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<class name="VitaARMarkerTracker" inherits="Reference" version="3.7">
+	<brief_description>
+		Detects the Vita camera demonstration marker and estimates its pose.
+	</brief_description>
+	<description>
+		[Vita only] Lightweight fiducial tracker used by the Vita camera AR demonstration. It consumes an [Image] in [constant Image.FORMAT_L8], validates the asymmetric marker payload, corrects detected corners using the supplied camera calibration, and estimates a planar pose.
+		This class is separate from [CameraServer] and is intended to validate camera capture, calibration, and projection. It is not a general-purpose marker tracker or SLAM implementation.
+	</description>
+	<tutorials>
+	</tutorials>
+	<methods>
+		<method name="track" qualifiers="const">
+			<return type="Dictionary">
+			</return>
+			<argument index="0" name="image" type="Image">
+			</argument>
+			<argument index="1" name="calibration" type="Dictionary">
+			</argument>
+			<argument index="2" name="marker_size" type="float" default="0.08">
+			</argument>
+			<description>
+				Detects the demonstration marker in [code]image[/code]. [code]calibration[/code] should be the dictionary returned by [method CameraFeed.get_calibration], and [code]marker_size[/code] is the measured black-square width in meters.
+				The result always contains [code]found[/code] and [code]processing_usec[/code]. When found, it also contains canonical image-space [code]corners[/code], three camera-coordinate [code]rotation_columns[/code], [code]translation[/code] in meters, [code]marker_size[/code], and [code]confidence[/code].
+			</description>
+		</method>
+	</methods>
+	<constants>
+	</constants>
+</class>

@@ -38,6 +38,7 @@
 #endif
 #if defined(VITA_ENABLED)
 #include "camera_vita.h"
+#include "vita_ar_marker_tracker.h"
 #endif
 
 void register_camera_types() {
@@ -49,6 +50,7 @@ void register_camera_types() {
 #endif
 #if defined(VITA_ENABLED)
 	CameraServer::make_default<CameraVita>();
+	ClassDB::register_class<VitaARMarkerTracker>();
 #endif
 }
 
