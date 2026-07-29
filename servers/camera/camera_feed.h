@@ -116,6 +116,8 @@ public:
 	virtual Error set_capture_format(const Size2 &p_size, int p_fps);
 	virtual Ref<CameraFrame> get_latest_frame(FrameFormat p_format = FRAME_RGBA) const;
 	virtual Ref<Image> capture_image() const;
+	virtual Dictionary get_calibration() const;
+	virtual Dictionary get_diagnostics() const;
 
 	virtual bool activate_feed();
 	virtual void deactivate_feed();

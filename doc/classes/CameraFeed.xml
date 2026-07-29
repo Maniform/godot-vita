@@ -16,6 +16,18 @@
 				Returns an independent RGBA snapshot of the latest completed frame. The feed must be active and have published at least one frame. Returns an empty reference when CPU capture is unavailable.
 			</description>
 		</method>
+		<method name="get_calibration" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns the calibration profile for the active capture format. When supported, the dictionary contains [code]valid[/code], [code]reference_size[/code], [code]size[/code], [code]focal_length[/code], [code]principal_point[/code], [code]radial_distortion[/code], [code]tangential_distortion[/code], [code]camera_to_device_rotation[/code], and [code]camera_to_device_translation[/code]. An empty dictionary means calibration is unavailable.
+			</description>
+		</method>
+		<method name="get_diagnostics" qualifiers="const">
+			<return type="Dictionary" />
+			<description>
+				Returns backend diagnostics when available. The Vita backend reports captured, published, and dropped frame counters together with the latest frame age, identifier, timestamp, size, and frame rate.
+			</description>
+		</method>
 		<method name="get_formats" qualifiers="const">
 			<return type="Array" />
 			<description>

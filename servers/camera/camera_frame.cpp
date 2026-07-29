@@ -37,6 +37,8 @@ void CameraFrame::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_device_orientation"), &CameraFrame::get_device_orientation);
 	ClassDB::bind_method(D_METHOD("get_camera_position"), &CameraFrame::get_camera_position);
 	ClassDB::bind_method(D_METHOD("is_orientation_available"), &CameraFrame::is_orientation_available);
+	ClassDB::bind_method(D_METHOD("is_orientation_interpolated"), &CameraFrame::is_orientation_interpolated);
+	ClassDB::bind_method(D_METHOD("get_orientation_error_usec"), &CameraFrame::get_orientation_error_usec);
 
 	ADD_PROPERTY(PropertyInfo(Variant::OBJECT, "image", PROPERTY_HINT_RESOURCE_TYPE, "Image"), "", "get_image");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "frame_id"), "", "get_frame_id");
@@ -44,6 +46,8 @@ void CameraFrame::_bind_methods() {
 	ADD_PROPERTY(PropertyInfo(Variant::QUAT, "device_orientation"), "", "get_device_orientation");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "camera_position", PROPERTY_HINT_ENUM, "Unspecified,Front,Back"), "", "get_camera_position");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "orientation_available"), "", "is_orientation_available");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "orientation_interpolated"), "", "is_orientation_interpolated");
+	ADD_PROPERTY(PropertyInfo(Variant::INT, "orientation_error_usec"), "", "get_orientation_error_usec");
 }
 
 Ref<Image> CameraFrame::get_image() const {
@@ -70,19 +74,31 @@ bool CameraFrame::is_orientation_available() const {
 	return orientation_available;
 }
 
+bool CameraFrame::is_orientation_interpolated() const {
+	return orientation_interpolated;
+}
+
+uint64_t CameraFrame::get_orientation_error_usec() const {
+	return orientation_error_usec;
+}
+
 CameraFrame::CameraFrame() :
 		frame_id(0),
 		timestamp_usec(0),
 		device_orientation(),
 		camera_position(CameraFeed::FEED_UNSPECIFIED),
-		orientation_available(false) {
+		orientation_available(false),
+		orientation_interpolated(false),
+		orientation_error_usec(0) {
 }
 
-CameraFrame::CameraFrame(const Ref<Image> &p_image, uint64_t p_frame_id, uint64_t p_timestamp_usec, const Quat &p_device_orientation, CameraFeed::FeedPosition p_camera_position, bool p_orientation_available) :
+CameraFrame::CameraFrame(const Ref<Image> &p_image, uint64_t p_frame_id, uint64_t p_timestamp_usec, const Quat &p_device_orientation, CameraFeed::FeedPosition p_camera_position, bool p_orientation_available, bool p_orientation_interpolated, uint64_t p_orientation_error_usec) :
 		image(p_image),
 		frame_id(p_frame_id),
 		timestamp_usec(p_timestamp_usec),
 		device_orientation(p_device_orientation),
 		camera_position(p_camera_position),
-		orientation_available(p_orientation_available) {
+		orientation_available(p_orientation_available),
+		orientation_interpolated(p_orientation_interpolated),
+		orientation_error_usec(p_orientation_error_usec) {
 }

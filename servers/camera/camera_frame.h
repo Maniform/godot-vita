@@ -45,6 +45,8 @@ class CameraFrame : public Reference {
 	Quat device_orientation;
 	CameraFeed::FeedPosition camera_position;
 	bool orientation_available;
+	bool orientation_interpolated;
+	uint64_t orientation_error_usec;
 
 protected:
 	static void _bind_methods();
@@ -56,9 +58,11 @@ public:
 	Quat get_device_orientation() const;
 	CameraFeed::FeedPosition get_camera_position() const;
 	bool is_orientation_available() const;
+	bool is_orientation_interpolated() const;
+	uint64_t get_orientation_error_usec() const;
 
 	CameraFrame();
-	CameraFrame(const Ref<Image> &p_image, uint64_t p_frame_id, uint64_t p_timestamp_usec, const Quat &p_device_orientation, CameraFeed::FeedPosition p_camera_position, bool p_orientation_available);
+	CameraFrame(const Ref<Image> &p_image, uint64_t p_frame_id, uint64_t p_timestamp_usec, const Quat &p_device_orientation, CameraFeed::FeedPosition p_camera_position, bool p_orientation_available, bool p_orientation_interpolated = false, uint64_t p_orientation_error_usec = 0);
 };
 
 #endif // CAMERA_FRAME_H

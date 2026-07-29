@@ -38,4 +38,10 @@ margin_right = 928.0
 margin_bottom = 502.0
 text = "Starting camera…"
 
+[node name="Diagnostics" type="Label" parent="Margin/VBox"]
+margin_top = 506.0
+margin_right = 928.0
+margin_bottom = 520.0
+text = "Waiting for a luminance frame…"
+
 [connection signal="pressed" from="Margin/VBox/Capture" to="." method="_on_Capture_pressed"]

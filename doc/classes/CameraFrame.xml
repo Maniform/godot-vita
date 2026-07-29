@@ -26,6 +26,12 @@
 		<member name="orientation_available" type="bool" setter="" getter="is_orientation_available" default="false">
 			Whether [member device_orientation] contains synchronized motion data.
 		</member>
+		<member name="orientation_error_usec" type="int" setter="" getter="get_orientation_error_usec" default="0">
+			Temporal distance in microseconds to the nearest orientation sample when [member orientation_interpolated] is [code]false[/code]. Zero is also used for unavailable or exactly matched orientation data.
+		</member>
+		<member name="orientation_interpolated" type="bool" setter="" getter="is_orientation_interpolated" default="false">
+			Whether [member device_orientation] was obtained by interpolating samples surrounding the camera timestamp. When [code]false[/code] and [member orientation_available] is [code]true[/code], the nearest sample was used with reduced temporal accuracy.
+		</member>
 		<member name="timestamp_usec" type="int" setter="" getter="get_timestamp_usec" default="0">
 			Camera capture timestamp in microseconds.
 		</member>

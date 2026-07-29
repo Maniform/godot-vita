@@ -1306,6 +1306,21 @@ Error Main::setup(const char *execpath, int argc, char *argv[], bool p_second_ph
 		}
 	}
 
+	GLOBAL_DEF("camera/vita/calibration/front/image_size", Vector2(640, 480));
+	GLOBAL_DEF("camera/vita/calibration/front/focal_length", Vector2());
+	GLOBAL_DEF("camera/vita/calibration/front/principal_point", Vector2(320, 240));
+	GLOBAL_DEF("camera/vita/calibration/front/radial_distortion", Vector3());
+	GLOBAL_DEF("camera/vita/calibration/front/tangential_distortion", Vector2());
+	GLOBAL_DEF("camera/vita/calibration/front/camera_to_device_rotation", Quat());
+	GLOBAL_DEF("camera/vita/calibration/front/camera_to_device_translation", Vector3());
+	GLOBAL_DEF("camera/vita/calibration/rear/image_size", Vector2(640, 480));
+	GLOBAL_DEF("camera/vita/calibration/rear/focal_length", Vector2());
+	GLOBAL_DEF("camera/vita/calibration/rear/principal_point", Vector2(320, 240));
+	GLOBAL_DEF("camera/vita/calibration/rear/radial_distortion", Vector3());
+	GLOBAL_DEF("camera/vita/calibration/rear/tangential_distortion", Vector2());
+	GLOBAL_DEF("camera/vita/calibration/rear/camera_to_device_rotation", Quat());
+	GLOBAL_DEF("camera/vita/calibration/rear/camera_to_device_translation", Vector3());
+
 	GLOBAL_DEF("input_devices/sensors/vita/orientation/enabled", true);
 	GLOBAL_DEF("input_devices/sensors/vita/orientation/initialization_sample_count", 1);
 	ProjectSettings::get_singleton()->set_custom_property_info("input_devices/sensors/vita/orientation/initialization_sample_count", PropertyInfo(Variant::INT, "input_devices/sensors/vita/orientation/initialization_sample_count", PROPERTY_HINT_RANGE, "1,120,1"));

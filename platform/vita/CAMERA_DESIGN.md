@@ -380,6 +380,15 @@ Initial calibration should use multiple physical devices to determine whether a
 single profile is sufficiently accurate. If unit-to-unit variation is
 significant, expose calibration overrides in project or user data.
 
+MR3 stores separate front and rear reference profiles under
+`camera/vita/calibration/{front,rear}/`. A profile contains the 640x480 image
+size, focal length, principal point, distortion coefficients, and the rigid
+camera-to-device transform. Zero focal lengths intentionally mark the built-in
+profile as invalid until measurements from physical hardware are available;
+the backend must not invent calibration values. `CameraFeed.get_calibration()`
+returns a copy adjusted to the selected stream size, using proportional scaling
+and a centered crop for 640x360.
+
 ### Tracking scope
 
 This backend is sufficient for:

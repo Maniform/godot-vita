@@ -68,7 +68,14 @@ class CameraFeedVita : public CameraFeed {
 	bool frame_pending;
 	uint64_t pending_frame_id;
 	uint64_t pending_timestamp_usec;
+	uint64_t pending_received_usec;
 	Ref<CameraFrame> latest_frame;
+	Ref<CameraFrame> latest_luminance_frame;
+	uint64_t latest_received_usec;
+
+	SafeNumeric<uint64_t> captured_frames;
+	SafeNumeric<uint64_t> published_frames;
+	SafeNumeric<uint64_t> dropped_frames;
 
 	static void _capture_thread(void *p_userdata);
 	void _capture_loop();
@@ -80,6 +87,8 @@ public:
 	virtual Array get_formats() const;
 	virtual Error set_capture_format(const Size2 &p_size, int p_fps);
 	virtual Ref<CameraFrame> get_latest_frame(FrameFormat p_format = FRAME_RGBA) const;
+	virtual Dictionary get_calibration() const;
+	virtual Dictionary get_diagnostics() const;
 
 	virtual bool activate_feed();
 	virtual void deactivate_feed();

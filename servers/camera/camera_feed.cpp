@@ -59,6 +59,8 @@ void CameraFeed::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_capture_format", "size", "fps"), &CameraFeed::set_capture_format);
 	ClassDB::bind_method(D_METHOD("get_latest_frame", "format"), &CameraFeed::get_latest_frame, DEFVAL(FRAME_RGBA));
 	ClassDB::bind_method(D_METHOD("capture_image"), &CameraFeed::capture_image);
+	ClassDB::bind_method(D_METHOD("get_calibration"), &CameraFeed::get_calibration);
+	ClassDB::bind_method(D_METHOD("get_diagnostics"), &CameraFeed::get_diagnostics);
 
 	ADD_GROUP("Feed", "feed_");
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "feed_is_active"), "set_active", "is_active");
@@ -289,6 +291,14 @@ Ref<Image> CameraFeed::capture_image() const {
 		return Ref<Image>();
 	}
 	return frame->get_image()->duplicate();
+}
+
+Dictionary CameraFeed::get_calibration() const {
+	return Dictionary();
+}
+
+Dictionary CameraFeed::get_diagnostics() const {
+	return Dictionary();
 }
 
 bool CameraFeed::activate_feed() {

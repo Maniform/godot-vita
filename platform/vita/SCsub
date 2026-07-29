@@ -2,6 +2,7 @@
 Import("env")
 files = [
     "os_vita.cpp",
+    "vita_orientation_history.cpp",
     "vita_orientation_tracker.cpp",
     "godot_vita.cpp",
     "context_egl_vita.cpp",

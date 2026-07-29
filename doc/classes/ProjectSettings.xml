@@ -312,6 +312,48 @@
 		<member name="audio/video_delay_compensation_ms" type="int" setter="" getter="" default="0">
 			Setting to hardcode audio delay when playing video. Best to leave this untouched unless you know what you are doing.
 		</member>
+		<member name="camera/vita/calibration/front/camera_to_device_rotation" type="Quat" setter="" getter="" default="Quat( 0, 0, 0, 1 )">
+			Rotation from the front camera coordinate system to the Vita device coordinate system. This is returned by [method CameraFeed.get_calibration].
+		</member>
+		<member name="camera/vita/calibration/front/camera_to_device_translation" type="Vector3" setter="" getter="" default="Vector3( 0, 0, 0 )">
+			Translation from the front camera origin to the Vita device origin, in meters when known.
+		</member>
+		<member name="camera/vita/calibration/front/focal_length" type="Vector2" setter="" getter="" default="Vector2( 0, 0 )">
+			Front camera focal lengths [code](fx, fy)[/code] in pixels at the calibration image size. Both values must be positive for the profile to be valid.
+		</member>
+		<member name="camera/vita/calibration/front/image_size" type="Vector2" setter="" getter="" default="Vector2( 640, 480 )">
+			Image dimensions used to calibrate the front camera. Intrinsics are scaled and center-cropped to the active capture format.
+		</member>
+		<member name="camera/vita/calibration/front/principal_point" type="Vector2" setter="" getter="" default="Vector2( 320, 240 )">
+			Front camera principal point [code](cx, cy)[/code] in pixels at the calibration image size.
+		</member>
+		<member name="camera/vita/calibration/front/radial_distortion" type="Vector3" setter="" getter="" default="Vector3( 0, 0, 0 )">
+			Front camera radial distortion coefficients [code](k1, k2, k3)[/code].
+		</member>
+		<member name="camera/vita/calibration/front/tangential_distortion" type="Vector2" setter="" getter="" default="Vector2( 0, 0 )">
+			Front camera tangential distortion coefficients [code](p1, p2)[/code].
+		</member>
+		<member name="camera/vita/calibration/rear/camera_to_device_rotation" type="Quat" setter="" getter="" default="Quat( 0, 0, 0, 1 )">
+			Rotation from the rear camera coordinate system to the Vita device coordinate system. This is returned by [method CameraFeed.get_calibration].
+		</member>
+		<member name="camera/vita/calibration/rear/camera_to_device_translation" type="Vector3" setter="" getter="" default="Vector3( 0, 0, 0 )">
+			Translation from the rear camera origin to the Vita device origin, in meters when known.
+		</member>
+		<member name="camera/vita/calibration/rear/focal_length" type="Vector2" setter="" getter="" default="Vector2( 0, 0 )">
+			Rear camera focal lengths [code](fx, fy)[/code] in pixels at the calibration image size. Both values must be positive for the profile to be valid.
+		</member>
+		<member name="camera/vita/calibration/rear/image_size" type="Vector2" setter="" getter="" default="Vector2( 640, 480 )">
+			Image dimensions used to calibrate the rear camera. Intrinsics are scaled and center-cropped to the active capture format.
+		</member>
+		<member name="camera/vita/calibration/rear/principal_point" type="Vector2" setter="" getter="" default="Vector2( 320, 240 )">
+			Rear camera principal point [code](cx, cy)[/code] in pixels at the calibration image size.
+		</member>
+		<member name="camera/vita/calibration/rear/radial_distortion" type="Vector3" setter="" getter="" default="Vector3( 0, 0, 0 )">
+			Rear camera radial distortion coefficients [code](k1, k2, k3)[/code].
+		</member>
+		<member name="camera/vita/calibration/rear/tangential_distortion" type="Vector2" setter="" getter="" default="Vector2( 0, 0 )">
+			Rear camera tangential distortion coefficients [code](p1, p2)[/code].
+		</member>
 		<member name="compression/formats/gzip/compression_level" type="int" setter="" getter="" default="-1">
 			The default compression level for gzip. Affects compressed scenes and resources. Higher levels result in smaller files at the cost of compression speed. Decompression speed is mostly unaffected by the compression level. [code]-1[/code] uses the default gzip compression level, which is identical to [code]6[/code] but could change in the future due to underlying zlib updates.
 		</member>

@@ -31,8 +31,11 @@
 #include "camera_vita.h"
 
 #include "core/image.h"
-#include "servers/camera/camera_frame.h"
+#include "core/os/os.h"
 #include "core/print_string.h"
+#include "core/project_settings.h"
+#include "platform/vita/vita_orientation_history.h"
+#include "servers/camera/camera_frame.h"
 
 #include <string.h>
 
@@ -58,7 +61,12 @@ CameraFeedVita::CameraFeedVita(CameraVita *p_camera_server, int p_device) :
 		capture_error(0),
 		frame_pending(false),
 		pending_frame_id(0),
-		pending_timestamp_usec(0) {
+		pending_timestamp_usec(0),
+		pending_received_usec(0),
+		latest_received_usec(0),
+		captured_frames(0),
+		published_frames(0),
+		dropped_frames(0) {
 	pending_frame.resize(frame_size);
 
 	if (device == SCE_CAMERA_DEVICE_FRONT) {
@@ -150,11 +158,16 @@ void CameraFeedVita::_capture_loop() {
 			break;
 		}
 
+		captured_frames.increment();
 		{
 			MutexLock lock(frame_mutex);
+			if (frame_pending) {
+				dropped_frames.increment();
+			}
 			memcpy(pending_frame.ptrw(), source, frame_size);
 			pending_frame_id = camera_read.frame;
 			pending_timestamp_usec = camera_read.timestamp;
+			pending_received_usec = OS::get_singleton()->get_ticks_usec();
 			frame_pending = true;
 		}
 	}
@@ -205,16 +218,73 @@ Error CameraFeedVita::set_capture_format(const Size2 &p_size, int p_fps) {
 	frame_size = width * height * 4;
 	pending_frame.resize(frame_size);
 	latest_frame.unref();
+	latest_luminance_frame.unref();
+	latest_received_usec = 0;
 	return OK;
 }
 
 Ref<CameraFrame> CameraFeedVita::get_latest_frame(FrameFormat p_format) const {
-	if (p_format != FRAME_RGBA || !is_active() || latest_frame.is_null() || latest_frame->get_image().is_null()) {
+	if (!is_active()) {
 		return Ref<CameraFrame>();
 	}
 
-	Ref<Image> image = latest_frame->get_image()->duplicate();
-	return Ref<CameraFrame>(memnew(CameraFrame(image, latest_frame->get_frame_id(), latest_frame->get_timestamp_usec(), latest_frame->get_device_orientation(), latest_frame->get_camera_position(), latest_frame->is_orientation_available())));
+	Ref<CameraFrame> source_frame;
+	if (p_format == FRAME_RGBA) {
+		source_frame = latest_frame;
+	} else if (p_format == FRAME_LUMINANCE) {
+		source_frame = latest_luminance_frame;
+	} else {
+		return Ref<CameraFrame>();
+	}
+
+	if (source_frame.is_null() || source_frame->get_image().is_null()) {
+		return Ref<CameraFrame>();
+	}
+
+	Ref<Image> image = source_frame->get_image()->duplicate();
+	return Ref<CameraFrame>(memnew(CameraFrame(image, source_frame->get_frame_id(), source_frame->get_timestamp_usec(), source_frame->get_device_orientation(), source_frame->get_camera_position(), source_frame->is_orientation_available(), source_frame->is_orientation_interpolated(), source_frame->get_orientation_error_usec())));
+}
+
+Dictionary CameraFeedVita::get_calibration() const {
+	const String prefix = device == SCE_CAMERA_DEVICE_FRONT ? "camera/vita/calibration/front/" : "camera/vita/calibration/rear/";
+	const Size2 reference_size = GLOBAL_GET(prefix + "image_size");
+	const Vector2 reference_focal_length = GLOBAL_GET(prefix + "focal_length");
+	const Vector2 reference_principal_point = GLOBAL_GET(prefix + "principal_point");
+
+	Dictionary calibration;
+	calibration["valid"] = reference_size.x > 0.0f && reference_size.y > 0.0f && reference_focal_length.x > 0.0f && reference_focal_length.y > 0.0f;
+	calibration["reference_size"] = reference_size;
+	calibration["size"] = Size2(width, height);
+
+	if (reference_size.x > 0.0f && reference_size.y > 0.0f) {
+		const real_t scale = MAX((real_t)width / reference_size.x, (real_t)height / reference_size.y);
+		const Vector2 crop_offset((reference_size.x * scale - width) * 0.5f, (reference_size.y * scale - height) * 0.5f);
+		calibration["focal_length"] = reference_focal_length * scale;
+		calibration["principal_point"] = reference_principal_point * scale - crop_offset;
+	} else {
+		calibration["focal_length"] = reference_focal_length;
+		calibration["principal_point"] = reference_principal_point;
+	}
+
+	calibration["radial_distortion"] = GLOBAL_GET(prefix + "radial_distortion");
+	calibration["tangential_distortion"] = GLOBAL_GET(prefix + "tangential_distortion");
+	calibration["camera_to_device_rotation"] = GLOBAL_GET(prefix + "camera_to_device_rotation");
+	calibration["camera_to_device_translation"] = GLOBAL_GET(prefix + "camera_to_device_translation");
+	return calibration;
+}
+
+Dictionary CameraFeedVita::get_diagnostics() const {
+	Dictionary diagnostics;
+	diagnostics["active"] = is_active();
+	diagnostics["captured_frames"] = captured_frames.get();
+	diagnostics["published_frames"] = published_frames.get();
+	diagnostics["dropped_frames"] = dropped_frames.get();
+	diagnostics["latest_frame_age_usec"] = latest_received_usec == 0 ? 0 : OS::get_singleton()->get_ticks_usec() - latest_received_usec;
+	diagnostics["latest_frame_id"] = latest_frame.is_valid() ? latest_frame->get_frame_id() : 0;
+	diagnostics["latest_timestamp_usec"] = latest_frame.is_valid() ? latest_frame->get_timestamp_usec() : 0;
+	diagnostics["size"] = Size2(width, height);
+	diagnostics["fps"] = 30;
+	return diagnostics;
 }
 
 bool CameraFeedVita::activate_feed() {
@@ -228,6 +298,10 @@ bool CameraFeedVita::activate_feed() {
 
 	exit_thread.clear();
 	capture_error.set(0);
+	captured_frames.set(0);
+	published_frames.set(0);
+	dropped_frames.set(0);
+	latest_received_usec = 0;
 	{
 		MutexLock lock(frame_mutex);
 		frame_pending = false;
@@ -269,6 +343,8 @@ void CameraFeedVita::deactivate_feed() {
 	_close_camera();
 	capture_error.set(0);
 	latest_frame.unref();
+	latest_luminance_frame.unref();
+	latest_received_usec = 0;
 	{
 		MutexLock lock(frame_mutex);
 		frame_pending = false;
@@ -286,6 +362,7 @@ void CameraFeedVita::_update() {
 	PoolVector<uint8_t> image_data;
 	uint64_t frame_id = 0;
 	uint64_t timestamp_usec = 0;
+	uint64_t received_usec = 0;
 	{
 		MutexLock lock(frame_mutex);
 		if (!frame_pending) {
@@ -300,13 +377,37 @@ void CameraFeedVita::_update() {
 		memcpy(write.ptr(), pending_frame.ptr(), frame_size);
 		frame_id = pending_frame_id;
 		timestamp_usec = pending_timestamp_usec;
+		received_usec = pending_received_usec;
 		frame_pending = false;
 	}
+
+	PoolVector<uint8_t> luminance_data;
+	luminance_data.resize(width * height);
+	{
+		PoolVector<uint8_t>::Read rgba = image_data.read();
+		PoolVector<uint8_t>::Write luminance = luminance_data.write();
+		for (int i = 0; i < width * height; i++) {
+			const int rgba_offset = i * 4;
+			luminance[i] = (77 * rgba[rgba_offset] + 150 * rgba[rgba_offset + 1] + 29 * rgba[rgba_offset + 2] + 128) >> 8;
+		}
+	}
+
+	Quat orientation;
+	bool orientation_interpolated = false;
+	uint64_t orientation_error_usec = 0;
+	const bool orientation_available = VitaOrientationHistory::get_singleton()->get_orientation(timestamp_usec, orientation, orientation_interpolated, orientation_error_usec);
 
 	Ref<Image> image;
 	image.instance();
 	image->create(width, height, false, Image::FORMAT_RGBA8, image_data);
-	latest_frame = Ref<CameraFrame>(memnew(CameraFrame(image, frame_id, timestamp_usec, Quat(), get_position(), false)));
+	Ref<Image> luminance_image;
+	luminance_image.instance();
+	luminance_image->create(width, height, false, Image::FORMAT_L8, luminance_data);
+
+	latest_frame = Ref<CameraFrame>(memnew(CameraFrame(image, frame_id, timestamp_usec, orientation, get_position(), orientation_available, orientation_interpolated, orientation_error_usec)));
+	latest_luminance_frame = Ref<CameraFrame>(memnew(CameraFrame(luminance_image, frame_id, timestamp_usec, orientation, get_position(), orientation_available, orientation_interpolated, orientation_error_usec)));
+	latest_received_usec = received_usec;
+	published_frames.increment();
 	set_RGB_img(image);
 }
 

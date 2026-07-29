@@ -29,6 +29,7 @@
 /**************************************************************************/
 
 #include "os_vita.h"
+#include "vita_orientation_history.h"
 
 #include "core/array.h"
 #include "core/os/keyboard.h"
@@ -225,6 +226,7 @@ Error OS_Vita::initialize(const VideoMode &p_desired, int p_video_driver, int p_
 	orientation_settings.gyro_bias_learning_time = GLOBAL_GET("input_devices/sensors/vita/orientation/gyro_bias_learning_time");
 	orientation_tracker.set_settings(orientation_settings);
 	orientation_tracker.reset();
+	VitaOrientationHistory::get_singleton()->clear();
 
 	motion_sampling = sceMotionStartSampling() >= 0;
 	if (motion_sampling && orientation_enabled) {
@@ -256,6 +258,7 @@ void OS_Vita::finalize() {
 		sceMotionStopSampling();
 		motion_sampling = false;
 	}
+	VitaOrientationHistory::get_singleton()->clear();
 
 	memdelete(joypad);
 	memdelete(input);
@@ -432,7 +435,10 @@ void OS_Vita::process_motion() {
 
 	if (orientation_enabled) {
 		orientation_tracker.update(acceleration, gyroscope, motion_sensor_state.timestamp, absolute_heading_valid, absolute_heading);
-		process_device_orientation(orientation_tracker.get_orientation(), orientation_tracker.is_orientation_available());
+		const Quat orientation = orientation_tracker.get_orientation();
+		const bool orientation_available = orientation_tracker.is_orientation_available();
+		process_device_orientation(orientation, orientation_available);
+		VitaOrientationHistory::get_singleton()->add_sample(motion_sensor_state.hostTimestamp, orientation, orientation_available);
 	}
 }
 
