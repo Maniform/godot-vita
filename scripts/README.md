@@ -26,9 +26,9 @@ Options:
 
 - `--with-cross-arch` builds the desktop editor and export templates for the
   architecture opposite to the host. On Ubuntu this installs LLVM-MinGW and
-  cross-compiles Windows. On macOS it builds both x86_64 and ARM64 and creates
-  universal editor and template binaries with `lipo`. It does not
-  cross-compile Linux because this branch's X11 platform does not support it.
+  the Linux cross-toolchain and builds both x86_64 and ARM64 for Windows and
+  Linux. On macOS it builds both x86_64 and ARM64 and creates universal editor
+  and template binaries with `lipo`.
 - `--install-only` installs and configures all dependencies, but does not run
   any builds. Use it to prepare a machine or repair its toolchains.
 - `--build-only` skips package and SDK installation and builds with the tools
@@ -91,7 +91,7 @@ Builds `release_debug` desktop editors with `tools=yes`. Its single optional
 positional argument selects the target:
 
 ```text
-scripts/build_editors.sh [all|windows-x64|windows-arm64|linux|macos|macos-x64|macos-arm64|macos-universal]
+scripts/build_editors.sh [all|windows-x64|windows-arm64|linux|linux-x64|linux-arm64|linux-universal|macos|macos-x64|macos-arm64|macos-universal]
 ```
 
 - `all` is the default. On Ubuntu it builds Windows x86_64, Windows ARM64, and
@@ -100,8 +100,9 @@ scripts/build_editors.sh [all|windows-x64|windows-arm64|linux|macos|macos-x64|ma
 - `windows-x64` builds the 64-bit x86 Windows editor. It uses Ubuntu's
   MinGW-w64 on an x86_64 host and LLVM-MinGW when cross-compiling from ARM64.
 - `windows-arm64` builds the native Windows ARM64 editor with LLVM-MinGW.
-- `linux` builds the Linux X11 editor for the host CPU. `linux-x64` is accepted
-  as a compatibility alias, but the script still builds for the host CPU.
+- `linux` builds the Linux X11 editor for the host CPU. `linux-x64` and
+  `linux-arm64` select one architecture explicitly; `linux-universal` builds
+  both architectures as separate executables.
 - `macos` builds for the host CPU. `macos-x64` and `macos-arm64` select one
   architecture explicitly. `macos-universal` builds both and merges them with
   `lipo`. All macOS targets package the editor as `bin/Godot Vita.app`;
@@ -127,13 +128,14 @@ Builds both `release` and `release_debug` export templates for the selected
 platform. After every run, it rebuilds and validates the importable TPZ bundle.
 
 ```text
-scripts/build_export_templates.sh [all|windows-x64|windows-arm64|linux|macos|macos-x64|macos-arm64|macos-universal|vita]
+scripts/build_export_templates.sh [all|windows-x64|windows-arm64|linux|linux-x64|linux-arm64|linux-universal|macos|macos-x64|macos-arm64|macos-universal|vita]
 ```
 
 - `all` is the default. On Ubuntu it builds every Windows, Linux, and Vita
   template. On macOS it builds a universal `osx.zip` plus both Vita templates.
 - `windows-x64`, `windows-arm64`, and `linux` build only that platform's two
-  template variants. `linux-x64` is also accepted as an alias for `linux`.
+  template variants. `linux-x64` and `linux-arm64` select one Linux
+  architecture; `linux-universal` builds and packages both.
 - `macos`, `macos-x64`, and `macos-arm64` create `osx.zip` with the selected
   architecture. `macos-universal` creates an `osx.zip` whose debug and release
   executables contain both x86_64 and ARM64 slices.

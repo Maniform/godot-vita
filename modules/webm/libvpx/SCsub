@@ -230,10 +230,9 @@ elif env["platform"] == "uwp":
 elif env["platform"] != "windows":  # Disable for Windows, yasm SIMD optimizations trigger crash (GH-50862).
     import platform
 
+    target_arch = env.get("arch", "") or platform.machine()
     is_x11_or_server_arm = (env["platform"] == "x11" or env["platform"] == "server") and (
-        platform.machine().startswith("arm")
-        or platform.machine().startswith("aarch")
-        or ("arch" in env and env["arch"].startswith("arm"))
+        target_arch.startswith("arm") or target_arch.startswith("aarch")
     )
     is_macos_x86 = env["platform"] == "osx" and ("arch" in env and (env["arch"] != "arm64"))
     is_ios_x86 = env["platform"] == "iphone" and ("arch" in env and env["arch"].startswith("x86"))

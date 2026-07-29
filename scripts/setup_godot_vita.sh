@@ -110,18 +110,26 @@ configure_environment() {
   export PATH="$VITASDK/bin:$PATH"
 }
 
-configure_amd64_apt_sources() {
+configure_foreign_apt_sources() {
   local ubuntu_sources=/etc/apt/sources.list.d/ubuntu.sources
-  local amd64_sources=/etc/apt/sources.list.d/ubuntu-amd64.sources
+  local native_arch foreign_arch foreign_sources
   local codename=${VERSION_CODENAME:-noble}
 
-  if [[ -f $ubuntu_sources ]] && grep -Fq "ports.ubuntu.com/ubuntu-ports" "$ubuntu_sources"; then
-    if ! grep -q "^Architectures:" "$ubuntu_sources"; then
-      "${SUDO[@]}" sed -i "/^Types:/a Architectures: arm64" "$ubuntu_sources"
-    fi
+  if [[ $HOST_ARCH == aarch64 ]]; then
+    native_arch=arm64
+    foreign_arch=amd64
+  else
+    native_arch=amd64
+    foreign_arch=arm64
+  fi
+  foreign_sources="/etc/apt/sources.list.d/ubuntu-$foreign_arch.sources"
+
+  if [[ -f $ubuntu_sources ]] && ! grep -q "^Architectures:" "$ubuntu_sources"; then
+    "${SUDO[@]}" sed -i "/^Types:/a Architectures: $native_arch" "$ubuntu_sources"
   fi
 
-  "${SUDO[@]}" tee "$amd64_sources" >/dev/null <<EOF
+  if [[ $foreign_arch == amd64 ]]; then
+    "${SUDO[@]}" tee "$foreign_sources" >/dev/null <<EOF
 Types: deb
 URIs: http://archive.ubuntu.com/ubuntu/
 Suites: $codename $codename-updates $codename-backports
@@ -136,6 +144,16 @@ Components: main universe restricted multiverse
 Architectures: amd64
 Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 EOF
+  else
+    "${SUDO[@]}" tee "$foreign_sources" >/dev/null <<EOF
+Types: deb
+URIs: http://ports.ubuntu.com/ubuntu-ports/
+Suites: $codename $codename-updates $codename-backports $codename-security
+Components: main universe restricted multiverse
+Architectures: arm64
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+  fi
 }
 
 install_host_dependencies() {
@@ -152,9 +170,13 @@ install_host_dependencies() {
     return
   fi
 
-  if [[ $HOST_ARCH == aarch64 ]]; then
-    "${SUDO[@]}" dpkg --add-architecture amd64
-    configure_amd64_apt_sources
+  if [[ $HOST_ARCH == aarch64 || $WITH_CROSS_ARCH == yes ]]; then
+    if [[ $HOST_ARCH == aarch64 ]]; then
+      "${SUDO[@]}" dpkg --add-architecture amd64
+    else
+      "${SUDO[@]}" dpkg --add-architecture arm64
+    fi
+    configure_foreign_apt_sources
   fi
 
   "${SUDO[@]}" apt-get update
@@ -167,6 +189,25 @@ install_host_dependencies() {
 
   if [[ $HOST_ARCH == aarch64 ]]; then
     "${SUDO[@]}" apt-get install -y qemu-user-binfmt libc6:amd64 libzstd1:amd64
+  fi
+
+  if [[ $WITH_CROSS_ARCH == yes ]]; then
+    local cross_compiler foreign_arch
+    if [[ $HOST_ARCH == aarch64 ]]; then
+      cross_compiler=g++-x86-64-linux-gnu
+      foreign_arch=amd64
+    else
+      cross_compiler=g++-aarch64-linux-gnu
+      foreign_arch=arm64
+    fi
+    "${SUDO[@]}" apt-get install -y \
+      "$cross_compiler" \
+      "libx11-dev:$foreign_arch" "libxcursor-dev:$foreign_arch" \
+      "libxinerama-dev:$foreign_arch" "libxrandr-dev:$foreign_arch" \
+      "libxi-dev:$foreign_arch" "libgl-dev:$foreign_arch" \
+      "libxext-dev:$foreign_arch" "libxrender-dev:$foreign_arch" \
+      "libasound2-dev:$foreign_arch" "libpulse-dev:$foreign_arch" \
+      "libspeechd-dev:$foreign_arch" "libudev-dev:$foreign_arch"
   fi
 }
 
@@ -221,9 +262,6 @@ if [[ $SKIP_INSTALL == no ]]; then
     if [[ $HOST_ARCH == aarch64 || $WITH_CROSS_ARCH == yes ]]; then
       SKIP_APT=yes "$ROOT/scripts/install_windows_cross_dependencies.sh"
     fi
-    if [[ $WITH_CROSS_ARCH == yes ]]; then
-      echo "Note: this branch's platform/x11 code does not support cross-compiling Linux for the opposite architecture."
-    fi
   else
     VITASDK="$VITASDK" PVR_PSP2_VERSION="${PVR_PSP2_VERSION:-3.9}" \
       "$ROOT/scripts/install_vita_pvr_sdk.sh" "$VITASDK/arm-vita-eabi"
@@ -243,7 +281,11 @@ if [[ $SKIP_BUILD == no ]]; then
     fi
     scripts/build_export_templates.sh vita
   else
-    scripts/build_editors.sh linux
+    if [[ $WITH_CROSS_ARCH == yes ]]; then
+      scripts/build_editors.sh linux-universal
+    else
+      scripts/build_editors.sh linux
+    fi
     if [[ $HOST_ARCH == x86_64 ]]; then
       scripts/build_editors.sh windows-x64
       if [[ $WITH_CROSS_ARCH == yes ]]; then
@@ -256,7 +298,11 @@ if [[ $SKIP_BUILD == no ]]; then
       fi
     fi
 
-    scripts/build_export_templates.sh linux
+    if [[ $WITH_CROSS_ARCH == yes ]]; then
+      scripts/build_export_templates.sh linux-universal
+    else
+      scripts/build_export_templates.sh linux
+    fi
     if [[ $HOST_ARCH == x86_64 ]]; then
       scripts/build_export_templates.sh windows-x64
       if [[ $WITH_CROSS_ARCH == yes ]]; then

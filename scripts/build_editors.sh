@@ -40,8 +40,48 @@ build_windows_arm64() {
   MINGW_ARM64_PREFIX="$ARM64_PREFIX" scons platform=windows target=release_debug tools=yes arch=arm64 bits=64 use_mingw=yes use_llvm=yes mingw_prefix_arm64="$ARM64_PREFIX" target_win_version=0x0A00 debug_symbols=no lto=none -j"$JOBS"
 }
 
+build_linux_arch() {
+  local arch=$1
+  local host_arch
+  case "$(uname -m)" in
+    aarch64|arm64) host_arch=arm64 ;;
+    x86_64) host_arch=x86_64 ;;
+    *) echo "Unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
+  esac
+
+  if [[ $arch == "$host_arch" ]]; then
+    scons platform=x11 target=release_debug tools=yes bits=64 debug_symbols=no lto=none -j"$JOBS"
+    return
+  fi
+
+  local triplet
+  case "$arch" in
+    arm64) triplet=aarch64-linux-gnu ;;
+    x86_64) triplet=x86_64-linux-gnu ;;
+    *) echo "Unsupported Linux architecture: $arch" >&2; exit 1 ;;
+  esac
+  command -v "${triplet}-g++" >/dev/null 2>&1 || {
+    echo "Linux $arch cross-compiler not found: ${triplet}-g++" >&2
+    echo "Run scripts/setup_godot_vita.sh --install-only --with-cross-arch first." >&2
+    exit 1
+  }
+  env PKG_CONFIG_PATH= \
+    PKG_CONFIG_LIBDIR="/usr/lib/$triplet/pkgconfig:/usr/share/pkgconfig" \
+    scons platform=x11 target=release_debug tools=yes arch="$arch" bits=64 \
+      CC="${triplet}-gcc" CXX="${triplet}-g++" debug_symbols=no lto=none -j"$JOBS"
+}
+
 build_linux() {
-  scons platform=x11 target=release_debug tools=yes bits=64 debug_symbols=no lto=none -j"$JOBS"
+  case "$(uname -m)" in
+    aarch64|arm64) build_linux_arch arm64 ;;
+    x86_64) build_linux_arch x86_64 ;;
+    *) echo "Unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
+  esac
+}
+
+build_linux_universal() {
+  build_linux_arch x86_64
+  build_linux_arch arm64
 }
 
 build_macos_editor_binary() {
@@ -102,7 +142,10 @@ case "$TARGET" in
     ;;
   windows-x64) build_windows_x64 ;;
   windows-arm64) build_windows_arm64 ;;
-  linux|linux-x64) build_linux ;;
+  linux) build_linux ;;
+  linux-x64) build_linux_arch x86_64 ;;
+  linux-arm64) build_linux_arch arm64 ;;
+  linux-universal) build_linux_universal ;;
   macos)
     case "$(uname -m)" in
       arm64|aarch64) build_macos_arch arm64 ;;
@@ -113,5 +156,5 @@ case "$TARGET" in
   macos-arm64) build_macos_arch arm64 ;;
   macos-x64) build_macos_arch x86_64 ;;
   macos-universal) build_macos_universal ;;
-  *) echo "Usage: $0 [all|windows-x64|windows-arm64|linux|macos|macos-x64|macos-arm64|macos-universal]" >&2; exit 2 ;;
+  *) echo "Usage: $0 [all|windows-x64|windows-arm64|linux|linux-x64|linux-arm64|linux-universal|macos|macos-x64|macos-arm64|macos-universal]" >&2; exit 2 ;;
 esac

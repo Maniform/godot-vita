@@ -80,15 +80,64 @@ build_windows_arm64() {
   mv -f bin/godot.windows.opt.debug.arm64.exe "$STAGE/windows_arm64_debug.exe"
 }
 
-build_linux() {
-  local binary_arch=64
-  if [[ $(uname -m) == aarch64 || $(uname -m) == arm64 ]]; then
+build_linux_arch() {
+  local arch=$1
+  local host_arch binary_arch template_arch
+  case "$(uname -m)" in
+    aarch64|arm64) host_arch=arm64 ;;
+    x86_64) host_arch=x86_64 ;;
+    *) echo "Unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
+  esac
+
+  local scons_args=()
+  local env_args=()
+  if [[ $arch == arm64 ]]; then
     binary_arch=arm64
+    template_arch=arm64
+  elif [[ $arch == x86_64 ]]; then
+    binary_arch=64
+    template_arch=64
+  else
+    echo "Unsupported Linux architecture: $arch" >&2
+    exit 1
   fi
-  scons platform=x11 target=release tools=no bits=64 debug_symbols=no lto=none -j"$JOBS"
-  mv -f "bin/godot.x11.opt.$binary_arch" "$STAGE/linux_x11_64_release"
-  scons platform=x11 target=release_debug tools=no bits=64 debug_symbols=no lto=none -j"$JOBS"
-  mv -f "bin/godot.x11.opt.debug.$binary_arch" "$STAGE/linux_x11_64_debug"
+
+  if [[ $arch != "$host_arch" ]]; then
+    local triplet
+    if [[ $arch == arm64 ]]; then
+      triplet=aarch64-linux-gnu
+    else
+      triplet=x86_64-linux-gnu
+      binary_arch=x86_64
+    fi
+    command -v "${triplet}-g++" >/dev/null 2>&1 || {
+      echo "Linux $arch cross-compiler not found: ${triplet}-g++" >&2
+      echo "Run scripts/setup_godot_vita.sh --install-only --with-cross-arch first." >&2
+      exit 1
+    }
+    env_args=(env PKG_CONFIG_PATH= PKG_CONFIG_LIBDIR="/usr/lib/$triplet/pkgconfig:/usr/share/pkgconfig")
+    scons_args=(arch="$arch" CC="${triplet}-gcc" CXX="${triplet}-g++")
+  fi
+
+  "${env_args[@]}" scons platform=x11 target=release tools=no bits=64 \
+    "${scons_args[@]}" debug_symbols=no lto=none -j"$JOBS"
+  mv -f "bin/godot.x11.opt.$binary_arch" "$STAGE/linux_x11_${template_arch}_release"
+  "${env_args[@]}" scons platform=x11 target=release_debug tools=no bits=64 \
+    "${scons_args[@]}" debug_symbols=no lto=none -j"$JOBS"
+  mv -f "bin/godot.x11.opt.debug.$binary_arch" "$STAGE/linux_x11_${template_arch}_debug"
+}
+
+build_linux() {
+  case "$(uname -m)" in
+    aarch64|arm64) build_linux_arch arm64 ;;
+    x86_64) build_linux_arch x86_64 ;;
+    *) echo "Unsupported Linux architecture: $(uname -m)" >&2; exit 1 ;;
+  esac
+}
+
+build_linux_universal() {
+  build_linux_arch x86_64
+  build_linux_arch arm64
 }
 
 build_macos_binary() {
@@ -177,7 +226,10 @@ case "$TARGET" in
     ;;
   windows-x64) build_windows_x64 ;;
   windows-arm64) build_windows_arm64 ;;
-  linux|linux-x64) build_linux ;;
+  linux) build_linux ;;
+  linux-x64) build_linux_arch x86_64 ;;
+  linux-arm64) build_linux_arch arm64 ;;
+  linux-universal) build_linux_universal ;;
   macos)
     case "$(uname -m)" in
       arm64|aarch64) build_macos_arch arm64 ;;
@@ -189,7 +241,7 @@ case "$TARGET" in
   macos-x64) build_macos_arch x86_64 ;;
   macos-universal) build_macos_universal ;;
   vita) build_vita ;;
-  *) echo "Usage: $0 [all|windows-x64|windows-arm64|linux|macos|macos-x64|macos-arm64|macos-universal|vita]" >&2; exit 2 ;;
+  *) echo "Usage: $0 [all|windows-x64|windows-arm64|linux|linux-x64|linux-arm64|linux-universal|macos|macos-x64|macos-arm64|macos-universal|vita]" >&2; exit 2 ;;
 esac
 
 FILES=()
