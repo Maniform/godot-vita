@@ -107,8 +107,8 @@ Error ContextEGL_Vita::initialize() {
 	// Initialize PVR_PSP2
 	PVRSRV_PSP2_APPHINT hint;
 
-	sceKernelLoadStartModule("app0:module/libgpu_es4_ext.suprx", 0, NULL, 0, NULL, NULL);
-	sceKernelLoadStartModule("app0:module/libIMGEGL.suprx", 0, NULL, 0, NULL, NULL);
+	sceKernelLoadStartModule("app0:/module/libgpu_es4_ext.suprx", 0, NULL, 0, NULL, NULL);
+	sceKernelLoadStartModule("app0:/module/libIMGEGL.suprx", 0, NULL, 0, NULL, NULL);
 
 	PVRSRVInitializeAppHint(&hint);
 	hint.ui32SwTexOpCleanupDelay = 16000;

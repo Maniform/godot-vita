@@ -497,10 +497,10 @@ String OS_Vita::get_user_data_dir() const {
 		if (use_custom_dir) {
 			String custom_dir = get_safe_dir_name(ProjectSettings::get_singleton()->get("application/config/custom_user_dir_name"), true);
 			if (custom_dir != "") {
-				return String("savedata0:").plus_file(custom_dir);
+				return String("savedata0:/").plus_file(custom_dir);
 			}
 		}
-		return "savedata0:";
+		return "savedata0:/";
 	}
 
 	String fallback_id = get_title_id();
@@ -662,12 +662,12 @@ Error OS_Vita::open_dynamic_library(const String p_path, void *&p_library_handle
 	if (FileAccess::exists(path) && path.is_rel_path()) {
 		// dlopen expects a slash, in this case a leading ./ for it to be interpreted as a relative path,
 		//  otherwise it will end up searching various system directories for the lib instead and finally failing.
-		path = "app0:" + path;
+		path = String("app0:/").plus_file(path);
 	}
 
 	if (!FileAccess::exists(path)) {
 		//this code exists so gdnative can load .suprx files from within the executable path
-		path = get_executable_path().get_base_dir().plus_file("app0:").plus_file(p_path.get_file());
+		path = String("app0:/").plus_file(p_path.get_file());
 	}
 
 	p_library_handle = dlopen(path.utf8().get_data(), RTLD_NOW);

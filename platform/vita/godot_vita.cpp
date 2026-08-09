@@ -58,12 +58,12 @@ int main(int argc, char *argv[]) {
 #ifndef VITAGL
 	char app_dir_path[0x100];
 	char app_kernel_module_path[0x100];
-	sceKernelLoadStartModule("vs0:sys/external/libfios2.suprx", 0, NULL, 0, NULL, NULL);
-	sceKernelLoadStartModule("vs0:sys/external/libc.suprx", 0, NULL, 0, NULL, NULL);
+	sceKernelLoadStartModule("vs0:/sys/external/libfios2.suprx", 0, NULL, 0, NULL, NULL);
+	sceKernelLoadStartModule("vs0:/sys/external/libc.suprx", 0, NULL, 0, NULL, NULL);
 
 	CharString title_id = os.get_title_id().utf8();
 	if (title_id.length() == 9) {
-		snprintf(app_dir_path, sizeof(app_dir_path), "ux0:app/%s", title_id.get_data());
+		snprintf(app_dir_path, sizeof(app_dir_path), "ux0:/app/%s", title_id.get_data());
 		snprintf(app_kernel_module_path, sizeof(app_kernel_module_path), "%s/module/libgpu_es4_kernel_ext.skprx", app_dir_path);
 
 		SceUID res = taiLoadStartKernelModule(app_kernel_module_path, 0, NULL, 0);
