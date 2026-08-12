@@ -50,24 +50,32 @@ void WindowsTerminalLogger::logv(const char *p_format, va_list p_list, bool p_er
 		len = BUFFER_SIZE; // Output is too big, will be truncated
 	buf[len] = 0;
 
+	FILE *stream = p_err ? stderr : stdout;
+	HANDLE stream_handle = GetStdHandle(p_err ? STD_ERROR_HANDLE : STD_OUTPUT_HANDLE);
+	DWORD console_mode = 0;
+	if (stream_handle == INVALID_HANDLE_VALUE || !GetConsoleMode(stream_handle, &console_mode)) {
+		// Pipes and files are byte streams. Keep the logger's UTF-8 encoding
+		// instead of passing through the active C locale via fwprintf().
+		fwrite(buf, 1, len, stream);
+#ifdef DEBUG_ENABLED
+		fflush(stream);
+#endif
+		return;
+	}
+
 	int wlen = MultiByteToWideChar(CP_UTF8, 0, buf, len, NULL, 0);
-	if (wlen < 0)
+	if (wlen <= 0)
 		return;
 
-	wchar_t *wbuf = (wchar_t *)memalloc((len + 1) * sizeof(wchar_t));
+	wchar_t *wbuf = (wchar_t *)memalloc(wlen * sizeof(wchar_t));
 	ERR_FAIL_NULL_MSG(wbuf, "Out of memory.");
 	MultiByteToWideChar(CP_UTF8, 0, buf, len, wbuf, wlen);
-	wbuf[wlen] = 0;
-
-	if (p_err)
-		fwprintf(stderr, L"%ls", wbuf);
-	else
-		wprintf(L"%ls", wbuf);
+	WriteConsoleW(stream_handle, wbuf, wlen, NULL, NULL);
 
 	memfree(wbuf);
 
 #ifdef DEBUG_ENABLED
-	fflush(stdout);
+	fflush(stream);
 #endif
 }
 
