@@ -113,6 +113,7 @@ public:
 	virtual void alert(const String &p_alert, const String &p_title = "ALERT!");
 
 	virtual int get_video_driver_count() const;
+	virtual const char *get_video_driver_name(int p_driver) const;
 
 	virtual int get_audio_driver_count() const;
 	virtual const char *get_audio_driver_name(int p_driver) const;

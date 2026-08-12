@@ -81,6 +81,10 @@ int OS_Vita::get_video_driver_count() const {
 	return 1;
 }
 
+const char *OS_Vita::get_video_driver_name(int p_driver) const {
+	return "GLES2";
+}
+
 int OS_Vita::get_audio_driver_count() const {
 	return 1;
 }
@@ -141,22 +145,13 @@ int OS_Vita::get_current_video_driver() const {
 
 Error OS_Vita::initialize(const VideoMode &p_desired, int p_video_driver, int p_audio_driver) {
 	bool gl_initialization_error = false;
-	bool gles2 = false;
+	bool gles2 = true;
 	gl_context = NULL;
 
-	if (p_video_driver == VIDEO_DRIVER_GLES2) {
-		gles2 = true;
-	} else if (GLOBAL_GET("rendering/quality/driver/fallback_to_gles2")) {
-		p_video_driver = VIDEO_DRIVER_GLES2;
-		gles2 = true;
-	} else {
-		OS::get_singleton()->alert("OpenGL ES 3 is not supported on this device.\n\n"
-								   "Please enable the option \"Fallback to OpenGL ES 2.0\" in the options menu.\n",
-				"OpenGL ES 3 Not Supported");
-		//gl_initialization_error = true;
-		p_video_driver = VIDEO_DRIVER_GLES2;
-		gles2 = true;
-	}
+	// The Vita backend only implements GLES2. The single driver exposed by
+	// get_video_driver_name() must therefore always initialize that backend,
+	// independently of the generic OS video driver enum value.
+	p_video_driver = VIDEO_DRIVER_GLES2;
 
 	if (!gl_initialization_error) {
 		gl_context = memnew(ContextEGL_Vita(gles2));
