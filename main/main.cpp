@@ -1916,7 +1916,10 @@ bool Main::start() {
 
 	} else if (script != "") {
 		Ref<Script> script_res = ResourceLoader::load(script);
-		ERR_FAIL_COND_V_MSG(script_res.is_null(), false, "Can't load script: " + script);
+		if (script_res.is_null()) {
+			OS::get_singleton()->set_exit_code(EXIT_FAILURE);
+			ERR_FAIL_V_MSG(false, "Can't load script: " + script);
+		}
 
 		if (check_only) {
 			if (!script_res->is_valid()) {
@@ -1935,12 +1938,14 @@ bool Main::start() {
 				if (obj) {
 					memdelete(obj);
 				}
+				OS::get_singleton()->set_exit_code(EXIT_FAILURE);
 				ERR_FAIL_V_MSG(false, vformat("Can't load the script \"%s\" as it doesn't inherit from SceneTree or MainLoop.", script));
 			}
 
 			script_loop->set_init_script(script_res);
 			main_loop = script_loop;
 		} else {
+			OS::get_singleton()->set_exit_code(EXIT_FAILURE);
 			return false;
 		}
 
