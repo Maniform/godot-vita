@@ -162,15 +162,17 @@ Error OS_Vita::initialize(const VideoMode &p_desired, int p_video_driver, int p_
 			gl_context = NULL;
 			gl_initialization_error = true;
 		}
-		if (RasterizerGLES2::is_viable() == OK) {
-			RasterizerGLES2::register_config();
-			RasterizerGLES2::make_current();
-		} else {
-			OS::get_singleton()->alert("RasterizerGLES2::is_viable() failed\n"
-									   "RasterizerGLES2 Not Viable");
-			memdelete(gl_context);
-			gl_context = NULL;
-			gl_initialization_error = true;
+		if (!gl_initialization_error) {
+			if (RasterizerGLES2::is_viable() == OK) {
+				RasterizerGLES2::register_config();
+				RasterizerGLES2::make_current();
+			} else {
+				OS::get_singleton()->alert("RasterizerGLES2::is_viable() failed\n"
+										   "RasterizerGLES2 Not Viable");
+				memdelete(gl_context);
+				gl_context = NULL;
+				gl_initialization_error = true;
+			}
 		}
 	}
 
