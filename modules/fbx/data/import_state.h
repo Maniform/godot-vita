@@ -65,6 +65,7 @@ struct ImportState {
 	bool enable_material_import = true;
 	bool enable_animation_import = true;
 	bool is_blender_fbx = false;
+	bool is_unity_fbx = false;
 
 	Map<StringName, Ref<Texture>> cached_image_searches;
 	Map<uint64_t, Ref<Material3D>> cached_materials;

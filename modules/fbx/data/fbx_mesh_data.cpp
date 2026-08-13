@@ -778,13 +778,15 @@ void FBXMeshData::add_vertex(
 	if (p_uvs_0.has(p_vertex)) {
 		//print_verbose("uv1: [" + itos(p_vertex) + "] " + p_uvs_0[p_vertex]);
 		// Inverts Y UV.
-		p_surface_tool->add_uv(Vector2(p_uvs_0[p_vertex].x, 1 - p_uvs_0[p_vertex].y));
+		const real_t uv_y = state.is_unity_fbx ? -p_uvs_0[p_vertex].y : 1 - p_uvs_0[p_vertex].y;
+		p_surface_tool->add_uv(Vector2(p_uvs_0[p_vertex].x, uv_y));
 	}
 
 	if (p_uvs_1.has(p_vertex)) {
 		//print_verbose("uv2: [" + itos(p_vertex) + "] " + p_uvs_1[p_vertex]);
 		// Inverts Y UV.
-		p_surface_tool->add_uv2(Vector2(p_uvs_1[p_vertex].x, 1 - p_uvs_1[p_vertex].y));
+		const real_t uv_y = state.is_unity_fbx ? -p_uvs_1[p_vertex].y : 1 - p_uvs_1[p_vertex].y;
+		p_surface_tool->add_uv2(Vector2(p_uvs_1[p_vertex].x, uv_y));
 	}
 
 	if (p_colors.has(p_vertex)) {

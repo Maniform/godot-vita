@@ -117,7 +117,8 @@ private:
 			int p_bake_fps,
 			const uint32_t p_compress_flags,
 			const int32_t p_max_bone_weights,
-			bool p_is_blender_fbx);
+			bool p_is_blender_fbx,
+			bool p_is_unity_fbx);
 
 	template <class T>
 	T _interpolate_track(const Vector<float> &p_times, const Vector<T> &p_values, float p_time, AssetImportAnimation::Interpolation p_interp);

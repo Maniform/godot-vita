@@ -137,6 +137,7 @@ Node *EditorSceneImporterFBX::import_scene(const String &p_path, uint32_t p_flag
 		// safety for version handling
 		if (doc.IsSafeToImport()) {
 			bool is_blender_fbx = false;
+			bool is_unity_fbx = false;
 			//const FBXDocParser::PropertyPtr app_vendor = p_document->GlobalSettingsPtr()->Props()
 			//	p_document->Creator()
 			const FBXDocParser::PropertyTable *import_props = doc.GetMetadataProperties();
@@ -148,6 +149,7 @@ Node *EditorSceneImporterFBX::import_scene(const String &p_path, uint32_t p_flag
 				const FBXDocParser::TypedProperty<std::string> *app_name_string = dynamic_cast<const FBXDocParser::TypedProperty<std::string> *>(app_name);
 				if (app_name_string) {
 					print_verbose("FBX App Name: " + String(app_name_string->Value().c_str()));
+					is_unity_fbx = app_name_string->Value().find("Unity FBX Exporter") != std::string::npos;
 				}
 			}
 
@@ -172,7 +174,7 @@ Node *EditorSceneImporterFBX::import_scene(const String &p_path, uint32_t p_flag
 						   "For minimal breakage, please export FBX from Blender with -Z forward, and Y up.");
 			}
 
-			Spatial *spatial = _generate_scene(p_path, &doc, p_flags, p_bake_fps, p_compress_flags, 8, is_blender_fbx);
+			Spatial *spatial = _generate_scene(p_path, &doc, p_flags, p_bake_fps, p_compress_flags, 8, is_blender_fbx, is_unity_fbx);
 			// todo: move to document shutdown (will need to be validated after moving; this code has been validated already)
 			for (FBXDocParser::TokenPtr token : tokens) {
 				if (token) {
@@ -350,9 +352,11 @@ Spatial *EditorSceneImporterFBX::_generate_scene(
 		int p_bake_fps,
 		const uint32_t p_compress_flags,
 		const int32_t p_max_bone_weights,
-		bool p_is_blender_fbx) {
+		bool p_is_blender_fbx,
+		bool p_is_unity_fbx) {
 	ImportState state;
 	state.is_blender_fbx = p_is_blender_fbx;
+	state.is_unity_fbx = p_is_unity_fbx;
 	state.path = p_path;
 	state.animation_player = nullptr;
 
@@ -973,6 +977,12 @@ Spatial *EditorSceneImporterFBX::_generate_scene(
 
 							if (track_time.size() > 0) {
 								for (const std::pair<const int64_t, float> &keyframe : track_time) {
+									if (keyframe_map.keyframes.find(keyframe.first) == keyframe_map.keyframes.end()) {
+										// FBX curves may animate only one or two components. Start each
+										// sample from the curve node defaults so the other components
+										// keep their authored values instead of being reset to zero.
+										keyframe_map.keyframes[keyframe.first] = keyframe_map.has_default ? keyframe_map.default_value : Vector3();
+									}
 									if (curve_element == "d|X") {
 										keyframe_map.keyframes[keyframe.first].x = keyframe.second;
 									} else if (curve_element == "d|Y") {
@@ -1014,14 +1024,6 @@ Spatial *EditorSceneImporterFBX::_generate_scene(
 						// this would break node animation targets, so if you change this be warned. :)
 						if (state.fbx_bone_map.has(target_id)) {
 							bone = state.fbx_bone_map[target_id];
-						}
-
-						Transform target_transform;
-
-						if (state.fbx_target_map.has(target_id)) {
-							Ref<FBXNode> node_ref = state.fbx_target_map[target_id];
-							target_transform = node_ref->pivot_transform->GlobalTransform;
-							//print_verbose("[doc] allocated animation node transform");
 						}
 
 						//int size_targets = state.fbx_target_map.size();
@@ -1160,6 +1162,14 @@ Spatial *EditorSceneImporterFBX::_generate_scene(
 						bool valid_rest = false;
 						Transform bone_rest;
 						int skeleton_bone = -1;
+						if (target_node.is_valid() && target_node->pivot_transform.is_valid()) {
+							// Transform tracks in Godot 3 contain position, rotation and scale
+							// together. Use the node's authored local transform for channels
+							// absent from an FBX animation (for example a rotation-only track
+							// on a node whose base scale is 0.1).
+							bone_rest = get_unscaled_transform(target_node->pivot_transform->LocalTransform, state.scale);
+							valid_rest = true;
+						}
 						if (state.fbx_bone_map.has(target_id)) {
 							if (bone.is_valid() && bone->fbx_skeleton.is_valid()) {
 								skeleton_bone = bone->godot_bone_id;

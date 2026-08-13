@@ -583,6 +583,16 @@ Ref<Material3D> FBXMaterial::import_material(ImportState &state) {
 		print_verbose("Texture mapping mode: " + itos(mapping.map_mode) + "  name: " + get_texture_param_name(mapping.map_mode));
 
 		spatial_material->set_texture(mapping.map_mode, texture);
+
+		// SpatialMaterial has a single UV1 transform shared by its textures.
+		// Match the current FBX importer by taking it from the base color map.
+		// The old importer parsed these values but never applied them.
+		if (mapping.map_mode == Material3D::TextureParam::TEXTURE_ALBEDO && mapping.texture != nullptr) {
+			const Vector2 uv_translation = mapping.texture->UVTranslation();
+			const Vector2 uv_scaling = mapping.texture->UVScaling();
+			spatial_material->set_uv1_offset(Vector3(uv_translation.x, uv_translation.y, 0.0));
+			spatial_material->set_uv1_scale(Vector3(uv_scaling.x, uv_scaling.y, 1.0));
+		}
 	}
 
 	if (spatial_material.is_valid()) {
