@@ -548,10 +548,14 @@ bool EditorFileSystem::_update_scan_actions() {
 				String full_path = ia.dir->get_file_path(idx);
 				if (_test_for_reimport(full_path, false)) {
 					//must reimport
-					reimports.push_back(full_path);
+					if (reimports.find(full_path) == -1) {
+						reimports.push_back(full_path);
+					}
 					Vector<String> dependencies = _get_dependencies(full_path);
 					for (int i = 0; i < dependencies.size(); i++) {
-						if (import_extensions.has(dependencies[i].get_extension())) {
+						if (import_extensions.has(dependencies[i].get_extension()) &&
+								reimports.find(dependencies[i]) == -1 &&
+								_test_for_reimport(dependencies[i], false)) {
 							reimports.push_back(dependencies[i]);
 						}
 					}
