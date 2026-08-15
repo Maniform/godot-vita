@@ -764,8 +764,14 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 	Vector<String> path_remaps;
 
 	if (p_preset->get_export_filter() == EditorExportPreset::EXPORT_ALL_RESOURCES) {
-		//find stuff
-		_export_find_resources(EditorFileSystem::get_singleton()->get_filesystem(), paths);
+		// Build the final set through the dependency walker as some generated or
+		// newly discovered dependencies may not be present in the flat editor
+		// filesystem index yet.
+		Set<String> indexed_paths;
+		_export_find_resources(EditorFileSystem::get_singleton()->get_filesystem(), indexed_paths);
+		for (Set<String>::Element *E = indexed_paths.front(); E; E = E->next()) {
+			_export_find_dependencies(E->get(), paths);
+		}
 	} else {
 		bool scenes_only = p_preset->get_export_filter() == EditorExportPreset::EXPORT_SELECTED_SCENES;
 
