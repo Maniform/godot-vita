@@ -137,6 +137,15 @@ GDScriptInstance *GDScript::_create_instance(const Variant **p_args, int p_argco
 	Map<StringName, Variant> default_values;
 	List<PropertyInfo> exported_properties;
 	_update_exports_values(default_values, exported_properties);
+	GDScript *current_script = this;
+	while (current_script) {
+		for (Map<StringName, Variant>::Element *E = current_script->member_default_values.front(); E; E = E->next()) {
+			if (!default_values.has(E->key())) {
+				default_values[E->key()] = E->get();
+			}
+		}
+		current_script = current_script->_base;
+	}
 	instance->update_default_values(default_values, false);
 #endif
 	//@TODO make thread safe
@@ -1382,16 +1391,21 @@ void GDScriptInstance::reload_members() {
 
 void GDScriptInstance::update_default_values(const Map<StringName, Variant> &p_default_values, bool p_update_members) {
 #ifdef TOOLS_ENABLED
+	bool members_changed = false;
 	if (p_update_members) {
 		for (Map<StringName, Variant>::Element *E = default_values_cache.front(); E; E = E->next()) {
 			const Map<StringName, Variant>::Element *new_default = p_default_values.find(E->key());
 			const Map<StringName, GDScript::MemberInfo>::Element *member = script->member_indices.find(E->key());
 			if (new_default && member && members[member->get().index] == E->get()) {
 				members.write[member->get().index] = new_default->get();
+				members_changed = true;
 			}
 		}
 	}
 	default_values_cache = p_default_values;
+	if (members_changed && owner && owner->get_script_instance() == this) {
+		owner->_change_notify();
+	}
 #endif
 }
 

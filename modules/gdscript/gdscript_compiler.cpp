@@ -2116,6 +2116,7 @@ Error GDScriptCompiler::_parse_class_blocks(GDScript *p_script, const GDScriptPa
 
 				if (p_script->is_tool()) {
 					//re-create as an instance
+					Map<StringName, Variant> default_values = psi->get_default_values();
 					p_script->placeholders.erase(psi); //remove placeholder
 
 					GDScriptInstance *instance = memnew(GDScriptInstance);
@@ -2134,6 +2135,8 @@ Error GDScriptCompiler::_parse_class_blocks(GDScript *p_script, const GDScriptPa
 
 					Variant::CallError ce;
 					p_script->initializer->call(instance, nullptr, 0, ce);
+
+					instance->update_default_values(default_values, false);
 
 					if (ce.error != Variant::CallError::CALL_OK) {
 						//well, tough luck, not goinna do anything here

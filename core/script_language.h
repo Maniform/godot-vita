@@ -405,6 +405,10 @@ public:
 
 	Object *get_owner() { return owner; }
 
+	const Map<StringName, Variant> &get_default_values() const {
+		return default_values;
+	}
+
 	void update(const List<PropertyInfo> &p_properties, const Map<StringName, Variant> &p_values); //likely changed in editor
 
 	virtual bool is_placeholder() const { return true; }
