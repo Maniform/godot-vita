@@ -133,6 +133,12 @@ GDScriptInstance *GDScript::_create_instance(const Variant **p_args, int p_argco
 
 		ERR_FAIL_V_MSG(nullptr, "Error constructing a GDScriptInstance.");
 	}
+#ifdef TOOLS_ENABLED
+	Map<StringName, Variant> default_values;
+	List<PropertyInfo> exported_properties;
+	_update_exports_values(default_values, exported_properties);
+	instance->update_default_values(default_values, false);
+#endif
 	//@TODO make thread safe
 	return instance;
 }
@@ -518,19 +524,30 @@ bool GDScript::_update_exports(bool *r_err, bool p_recursive_call, PlaceHolderSc
 		}
 	}
 
-	if ((changed || p_instance_to_update) && placeholders.size()) { //hm :(
-
-		// update placeholders if any
+	if (changed || p_instance_to_update) {
 		Map<StringName, Variant> values;
 		List<PropertyInfo> propnames;
 		_update_exports_values(values, propnames);
 
-		if (changed) {
-			for (Set<PlaceHolderScriptInstance *>::Element *E = placeholders.front(); E; E = E->next()) {
-				E->get()->update(propnames, values);
+		if (placeholders.size()) {
+			if (changed) {
+				for (Set<PlaceHolderScriptInstance *>::Element *E = placeholders.front(); E; E = E->next()) {
+					E->get()->update(propnames, values);
+				}
+			} else {
+				p_instance_to_update->update(propnames, values);
 			}
-		} else {
-			p_instance_to_update->update(propnames, values);
+		}
+
+		if (changed) {
+			GDScriptLanguage::singleton->lock.lock();
+			for (Set<Object *>::Element *E = instances.front(); E; E = E->next()) {
+				ScriptInstance *script_instance = E->get()->get_script_instance();
+				if (script_instance && !script_instance->is_placeholder()) {
+					static_cast<GDScriptInstance *>(script_instance)->update_default_values(values, true);
+				}
+			}
+			GDScriptLanguage::singleton->lock.unlock();
 		}
 	}
 
@@ -1348,8 +1365,7 @@ void GDScriptInstance::reload_members() {
 	//pass the values to the new indices
 	for (Map<StringName, GDScript::MemberInfo>::Element *E = script->member_indices.front(); E; E = E->next()) {
 		if (member_indices_cache.has(E->key())) {
-			Variant value = members[member_indices_cache[E->key()]];
-			new_members.write[E->get().index] = value;
+			new_members.write[E->get().index] = members[member_indices_cache[E->key()]];
 		}
 	}
 
@@ -1361,7 +1377,21 @@ void GDScriptInstance::reload_members() {
 	for (Map<StringName, GDScript::MemberInfo>::Element *E = script->member_indices.front(); E; E = E->next()) {
 		member_indices_cache[E->key()] = E->get().index;
 	}
+#endif
+}
 
+void GDScriptInstance::update_default_values(const Map<StringName, Variant> &p_default_values, bool p_update_members) {
+#ifdef TOOLS_ENABLED
+	if (p_update_members) {
+		for (Map<StringName, Variant>::Element *E = default_values_cache.front(); E; E = E->next()) {
+			const Map<StringName, Variant>::Element *new_default = p_default_values.find(E->key());
+			const Map<StringName, GDScript::MemberInfo>::Element *member = script->member_indices.find(E->key());
+			if (new_default && member && members[member->get().index] == E->get()) {
+				members.write[member->get().index] = new_default->get();
+			}
+		}
+	}
+	default_values_cache = p_default_values;
 #endif
 }
 
@@ -1580,6 +1610,31 @@ struct GDScriptDepSort {
 	}
 };
 
+static void _get_reload_state(Object *p_object, List<Pair<StringName, Variant>> &r_state) {
+	ScriptInstance *script_instance = p_object->get_script_instance();
+	if (!script_instance) {
+		return;
+	}
+
+	script_instance->get_property_state(r_state);
+
+	Ref<Script> script = script_instance->get_script();
+	if (script.is_null()) {
+		return;
+	}
+
+	// Defaults are initialized again when the new script instance is created. Keeping
+	// them in the reload state would turn the old defaults into explicit overrides.
+	for (List<Pair<StringName, Variant>>::Element *E = r_state.front(); E;) {
+		List<Pair<StringName, Variant>>::Element *next = E->next();
+		Variant default_value;
+		if (script->get_property_default_value(E->get().first, default_value) && default_value == E->get().second) {
+			r_state.erase(E);
+		}
+		E = next;
+	}
+}
+
 void GDScriptLanguage::reload_all_scripts() {
 #ifdef DEBUG_ENABLED
 	print_verbose("GDScript: Reloading all scripts");
@@ -1653,7 +1708,7 @@ void GDScriptLanguage::reload_tool_script(const Ref<Script> &p_script, bool p_so
 				//save instance info
 				List<Pair<StringName, Variant>> state;
 				if (obj->get_script_instance()) {
-					obj->get_script_instance()->get_property_state(state);
+					_get_reload_state(obj, state);
 					map[obj->get_instance_id()] = state;
 					obj->set_script(RefPtr());
 				}
@@ -1669,7 +1724,7 @@ void GDScriptLanguage::reload_tool_script(const Ref<Script> &p_script, bool p_so
 				if (obj->get_script_instance()) {
 					map.insert(obj->get_instance_id(), List<Pair<StringName, Variant>>());
 					List<Pair<StringName, Variant>> &state = map[obj->get_instance_id()];
-					obj->get_script_instance()->get_property_state(state);
+					_get_reload_state(obj, state);
 					obj->set_script(RefPtr());
 				} else {
 					// no instance found. Let's remove it so we don't loop forever

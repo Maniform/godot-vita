@@ -491,7 +491,7 @@ void PlaceHolderScriptInstance::get_property_list(List<PropertyInfo> *p_properti
 			if (!values.has(pinfo.name)) {
 				pinfo.usage |= PROPERTY_USAGE_SCRIPT_DEFAULT_VALUE;
 			}
-			p_properties->push_back(E->get());
+			p_properties->push_back(pinfo);
 		}
 	}
 }
@@ -539,6 +539,17 @@ bool PlaceHolderScriptInstance::has_method(const StringName &p_method) const {
 }
 
 void PlaceHolderScriptInstance::update(const List<PropertyInfo> &p_properties, const Map<StringName, Variant> &p_values) {
+	List<StringName> defaults_to_remove;
+	for (Map<StringName, Variant>::Element *E = values.front(); E; E = E->next()) {
+		const Map<StringName, Variant>::Element *previous_default = default_values.find(E->key());
+		if (previous_default && previous_default->get() == E->get()) {
+			defaults_to_remove.push_back(E->key());
+		}
+	}
+	for (List<StringName>::Element *E = defaults_to_remove.front(); E; E = E->next()) {
+		values.erase(E->get());
+	}
+
 	Set<StringName> new_values;
 	for (const List<PropertyInfo>::Element *E = p_properties.front(); E; E = E->next()) {
 		StringName n = E->get().name;
@@ -577,6 +588,7 @@ void PlaceHolderScriptInstance::update(const List<PropertyInfo> &p_properties, c
 		owner->_change_notify();
 	}
 	//change notify
+	default_values = p_values;
 
 	constants.clear();
 	script->get_constants(&constants);

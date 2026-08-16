@@ -504,6 +504,10 @@ Error SceneState::_parse_node(Node *p_owner, Node *p_node, int p_parent_idx, Map
 		}
 
 		String name = E->get().name;
+		if (!pinned_props.has(name) && forced_value.get_type() == Variant::NIL && (E->get().usage & PROPERTY_USAGE_SCRIPT_DEFAULT_VALUE)) {
+			continue;
+		}
+
 		Variant value = forced_value.get_type() == Variant::NIL ? p_node->get(name) : forced_value;
 
 		if (!pinned_props.has(name) && forced_value.get_type() == Variant::NIL) {

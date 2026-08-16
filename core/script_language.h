@@ -377,6 +377,7 @@ class PlaceHolderScriptInstance : public ScriptInstance {
 	Object *owner;
 	List<PropertyInfo> properties;
 	Map<StringName, Variant> values;
+	Map<StringName, Variant> default_values;
 	Map<StringName, Variant> constants;
 	ScriptLanguage *language;
 	Ref<Script> script;

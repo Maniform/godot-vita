@@ -257,6 +257,9 @@ class GDScriptInstance : public ScriptInstance {
 #ifdef DEBUG_ENABLED
 	Map<StringName, int> member_indices_cache; //used only for hot script reloading
 #endif
+#ifdef TOOLS_ENABLED
+	Map<StringName, Variant> default_values_cache;
+#endif
 	Vector<Variant> members;
 	bool base_ref;
 
@@ -292,6 +295,7 @@ public:
 	virtual ScriptLanguage *get_language();
 
 	void reload_members();
+	void update_default_values(const Map<StringName, Variant> &p_default_values, bool p_update_members);
 
 	virtual MultiplayerAPI::RPCMode get_rpc_mode(const StringName &p_method) const;
 	virtual MultiplayerAPI::RPCMode get_rset_mode(const StringName &p_variable) const;
