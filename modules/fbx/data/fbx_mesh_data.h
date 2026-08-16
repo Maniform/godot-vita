@@ -116,6 +116,8 @@ private:
 			const ImportState &state,
 			Ref<SurfaceTool> p_surface_tool,
 			real_t p_scale,
+			real_t p_uv0_y_offset,
+			real_t p_uv1_y_offset,
 			int p_vertex,
 			const std::vector<Vector3> &p_vertices_position,
 			const HashMap<int, Vector3> &p_normals,

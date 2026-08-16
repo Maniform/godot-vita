@@ -193,6 +193,32 @@ MeshInstance *FBXMeshData::create_fbx_mesh(const ImportState &state, const FBXDo
 			uvs_0_raw,
 			uvs_1_raw);
 
+	// Unity FBX exports encountered in the wild use either [-1, 0] or [0, 1]
+	// for the first vertical UV tile. Choose the flip origin from the actual
+	// data instead of assuming that every file produced by Unity uses the same
+	// convention.
+	real_t uv0_y_offset = 1.0;
+	if (state.is_unity_fbx && !uvs_0.empty()) {
+		uv0_y_offset = 0.0;
+		for (const int *vertex = uvs_0.next(nullptr); vertex != nullptr; vertex = uvs_0.next(vertex)) {
+			if (uvs_0[*vertex].y > CMP_EPSILON) {
+				uv0_y_offset = 1.0;
+				break;
+			}
+		}
+	}
+
+	real_t uv1_y_offset = 1.0;
+	if (state.is_unity_fbx && !uvs_1.empty()) {
+		uv1_y_offset = 0.0;
+		for (const int *vertex = uvs_1.next(nullptr); vertex != nullptr; vertex = uvs_1.next(vertex)) {
+			if (uvs_1[*vertex].y > CMP_EPSILON) {
+				uv1_y_offset = 1.0;
+				break;
+			}
+		}
+	}
+
 	const int color_count = colors.size();
 	print_verbose("Vertex color count: " + itos(color_count));
 
@@ -294,6 +320,8 @@ MeshInstance *FBXMeshData::create_fbx_mesh(const ImportState &state, const FBXDo
 			add_vertex(state,
 					surface->surface_tool,
 					state.scale,
+					uv0_y_offset,
+					uv1_y_offset,
 					vertex,
 					vertices,
 					normals,
@@ -339,6 +367,8 @@ MeshInstance *FBXMeshData::create_fbx_mesh(const ImportState &state, const FBXDo
 						state,
 						morph_st,
 						state.scale,
+						uv0_y_offset,
+						uv1_y_offset,
 						vertex,
 						vertices,
 						normals,
@@ -374,7 +404,7 @@ MeshInstance *FBXMeshData::create_fbx_mesh(const ImportState &state, const FBXDo
 	for (const SurfaceId *surface_id = surfaces.next(nullptr); surface_id != nullptr; surface_id = surfaces.next(surface_id)) {
 		SurfaceData *surface = surfaces.getptr(*surface_id);
 
-		if (state.is_blender_fbx) {
+		if (state.is_blender_fbx || (state.is_unity_fbx && surface->material.is_valid() && surface->material->get_name().to_lower().find("colormap") >= 0)) {
 			surface->surface_tool->generate_normals();
 		}
 		// you can't generate them without a valid uv map.
@@ -761,6 +791,8 @@ void FBXMeshData::add_vertex(
 		const ImportState &state,
 		Ref<SurfaceTool> p_surface_tool,
 		real_t p_scale,
+		real_t p_uv0_y_offset,
+		real_t p_uv1_y_offset,
 		Vertex p_vertex,
 		const std::vector<Vector3> &p_vertices_position,
 		const HashMap<int, Vector3> &p_normals,
@@ -778,14 +810,14 @@ void FBXMeshData::add_vertex(
 	if (p_uvs_0.has(p_vertex)) {
 		//print_verbose("uv1: [" + itos(p_vertex) + "] " + p_uvs_0[p_vertex]);
 		// Inverts Y UV.
-		const real_t uv_y = state.is_unity_fbx ? -p_uvs_0[p_vertex].y : 1 - p_uvs_0[p_vertex].y;
+		const real_t uv_y = p_uv0_y_offset - p_uvs_0[p_vertex].y;
 		p_surface_tool->add_uv(Vector2(p_uvs_0[p_vertex].x, uv_y));
 	}
 
 	if (p_uvs_1.has(p_vertex)) {
 		//print_verbose("uv2: [" + itos(p_vertex) + "] " + p_uvs_1[p_vertex]);
 		// Inverts Y UV.
-		const real_t uv_y = state.is_unity_fbx ? -p_uvs_1[p_vertex].y : 1 - p_uvs_1[p_vertex].y;
+		const real_t uv_y = p_uv1_y_offset - p_uvs_1[p_vertex].y;
 		p_surface_tool->add_uv2(Vector2(p_uvs_1[p_vertex].x, uv_y));
 	}
 
