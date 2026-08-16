@@ -328,6 +328,14 @@ void EditorFileSystem::_thread_func(void *_userdata) {
 	sd->_scan_filesystem();
 }
 
+static bool _is_same_import_source(const String &p_path, const String &p_source_file) {
+#if defined(WINDOWS_ENABLED) || defined(UWP_ENABLED)
+	return p_path.nocasecmp_to(p_source_file) == 0;
+#else
+	return p_path == p_source_file;
+#endif
+}
+
 bool EditorFileSystem::_test_for_reimport(const String &p_path, bool p_only_imported_files) {
 	if (!reimport_on_missing_imported_files && p_only_imported_files) {
 		return false;
@@ -455,7 +463,7 @@ bool EditorFileSystem::_test_for_reimport(const String &p_path, bool p_only_impo
 
 	//check source md5 matching
 	if (!p_only_imported_files) {
-		if (source_file != String() && source_file != p_path) {
+		if (source_file != String() && !_is_same_import_source(p_path, source_file)) {
 			return true; //file was moved, reimport
 		}
 
